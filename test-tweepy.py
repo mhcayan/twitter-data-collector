@@ -5,6 +5,9 @@ import re
 from urllib.parse import urlparse
 import csv
 import validators #for url validation
+from Tweepy_Wrapper import Tweepy_Wrapper
+import time
+from random import randint
 
 
 PROJECT_PATH = r"F:\E\code\twitter-data-collector"
@@ -14,6 +17,7 @@ ALL_TWEETS_FILE_NAME = "all_tweets.csv"
 USER_FOLLOWERS_FILE_NAME = "user_follower_ids.csv"
 USER_FOLLOWINGS_FILE_NAME = "user_following_ids.csv"
 INPUT_FILE_NAME = "sm_org_17_18EBR2010ct_031021.dta"
+SEARCH_RESULT_FILE_NAME = "user_search_result.csv"
 
 #read all keys from json file
 with open("keys.json") as file:
@@ -29,6 +33,13 @@ access_token_secret = keysjson["access_token_secret"]
 import tweepy
 auth = tweepy.OAuth1UserHandler(consumer_key = api_key, consumer_secret = api_key_secret, 
     access_token= access_token, access_token_secret= access_token_secret)
+api = tweepy.API(auth, wait_on_rate_limit=True)
+
+def resetConnection():
+    auth = tweepy.OAuth1UserHandler(consumer_key = api_key, consumer_secret = api_key_secret, 
+        access_token= access_token, access_token_secret= access_token_secret)
+    api = tweepy.API(auth, wait_on_rate_limit=True)
+
 api = tweepy.API(auth, wait_on_rate_limit=True)
 
 def isUrlValid(url):
@@ -159,6 +170,82 @@ def get_twitter_ids_from_user_twitter_info(input_file_name):
     df = pd.read_csv(input_file_name)
     return list(zip(df.ein, df.twitter_id))
 
+def get_search_keys_from_name(name):
+    name = name.lower()
+    words = re.findall("\w+", name)
+    words_len = len(words)
+    search_keys = []
+    for l in range(2,  words_len + 1):
+        i = 0
+        while i + l <= words_len:
+            search_keys.append(' '.join(words[i:i+l]))
+            i = i + 1
+    return search_keys
+
+def get_search_results(input_dta_file, output_csv_file):
+
+    
+    tweepy_api = Tweepy_Wrapper(api)
+    search_result_dict = dict()
+    df = pd.read_stata(input_dta_file)
+
+    with open(output_csv_file, "w", newline = '', encoding = "utf-8") as file:
+        
+        w = csv.writer(file)
+        w.writerow(["ein", "org_name", "twitter", "search_key", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
+        "followers_count", "listed_count", "location", "screen_name", "statuses_count", "time_zone", "verified"])
+
+        progress_counter = 0
+        for index in df.index:
+
+            progress_counter = progress_counter + 1
+            org_name = df.at[index, "name"]
+            ein = df.at[index, "ein"]
+            twitter = df.at[index, "Twitter"]
+            print("processing organization: " + org_name)
+            search_keys = get_search_keys_from_name(org_name)
+            unique_ids = set()
+            for search_key in search_keys:
+                while True:
+                    try:
+                        users = tweepy_api.search_user_by_key(search_key)
+                        break
+                    except Exception as e:
+                        print(e)
+                        time.sleep(15 * 60 + randint(1, 100))
+                        resetConnection()
+                        tweepy_api.update_api(api)
+                        
+                    
+                for user in users:
+                    
+                    if user.id not in unique_ids:
+                        unique_ids.add(user.id)
+                        w.writerow([
+                            ein,
+                            org_name,
+                            twitter,
+                            search_key,
+                            user.id,
+                            user.name,
+                            user.created_at,
+                            user.description.replace('\n', ' ').encode('utf-8'),
+                            user.favourites_count,
+                            user.friends_count,
+                            user.followers_count,
+                            user.listed_count,
+                            user.location.replace('\n', ' ').encode('utf-8'),
+                            user.screen_name,
+                            user.statuses_count,
+                            user.time_zone,
+                            user.verified
+                        ])
+           
+            if progress_counter % 100 == 0:
+                print("%r record processed..." % progress_counter)
+
+
+
 if __name__ == '__main__':
     
     #get user info from twitter
@@ -170,9 +257,13 @@ if __name__ == '__main__':
     # get_user_tweets(os.path.join(RESOURES_PATH, ALL_TWEETS_FILE_NAME), 3, valid_screen_names[:10])
 
     #get user followers:
-    valid_twitter_ids = get_twitter_ids_from_user_twitter_info(os.path.join(RESOURES_PATH, USER_INFO_FILE_NAME))
-    get_user_follower_ids(os.path.join(RESOURES_PATH, USER_FOLLOWERS_FILE_NAME), valid_twitter_ids[:7])
+    # valid_twitter_ids = get_twitter_ids_from_user_twitter_info(os.path.join(RESOURES_PATH, USER_INFO_FILE_NAME))
+    # get_user_follower_ids(os.path.join(RESOURES_PATH, USER_FOLLOWERS_FILE_NAME), valid_twitter_ids[:7])
 
     # #get user followings (friends):
     # valid_twitter_ids = get_twitter_ids_from_user_twitter_info(os.path.join(RESOURES_PATH, USER_INFO_FILE_NAME))
     # get_user_following_ids(os.path.join(RESOURES_PATH, USER_FOLLOWINGS_FILE_NAME), valid_twitter_ids[:10])
+
+    for key in get_search_keys_from_name("BATON ROUGE FIRE PREVENTION COMMITTEE"):
+        print(key)
+    #get_search_results(os.path.join(RESOURES_PATH, INPUT_FILE_NAME), os.path.join(RESOURES_PATH, SEARCH_RESULT_FILE_NAME))
