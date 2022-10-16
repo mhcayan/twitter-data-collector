@@ -1,64 +1,78 @@
-class Tweepy_Wrapper:
-    
-    def __init__(self, _api):
-        self.api = _api
-        self.cache = dict()
-    
-    def update_api(_api):
-        self.api = _api
-    
-    def search_user_by_key(self, search_key):
+import json
+import tweepy
 
-        if search_key in self.cache:
-            print("cache hit!")
-            return self.cache[search_key]
+#read all keys from json file
+with open("keys.json") as file:
+    keysjson = json.load(file)
 
-        users = self.api.search_users(q = search_key, count = 20)
-                        
-        self.cache[search_key] = users
-        return users
+api_key = keysjson["api_key"]
+api_key_secret = keysjson["api_key_secret"]
+bearer_token = keysjson["bearer_token"]
+access_token = keysjson["access_token"]
+access_token_secret = keysjson["access_token_secret"]
 
+#authentication and authrization of the api
+
+def createAPI():
+    auth = tweepy.OAuth1UserHandler(consumer_key = api_key, consumer_secret = api_key_secret, 
+        access_token= access_token, access_token_secret= access_token_secret)
+    return tweepy.API(auth, wait_on_rate_limit=True)
+
+API = createAPI()
+SEARCH_CACHE = dict()
+USER_CACHE = dict()
+STATUS_CACHE = dict()
+    
+def update_api():
+    global API
+    API = createAPI()
+
+def search_user_by_key(search_key):
+
+    if search_key in SEARCH_CACHE:
+        print("cache hit!: search_key = " + search_key)
+        print("total search results = %r" % (len(SEARCH_CACHE[search_key])))
+        return SEARCH_CACHE[search_key]
+
+    users = API.search_users(q = search_key, count = 20)
+                    
+    SEARCH_CACHE[search_key] = users
+    return users
+
+def get_user_info(screen_name):
+
+    if screen_name in USER_CACHE:
+        print("cache hit! search_key = " + screen_name)
+        return USER_CACHE[screen_name]
+
+    user_info = API.get_user(screen_name = screen_name)
+    USER_CACHE[screen_name] = user_info
+    return user_info
+
+def get_status(status_id):
+    
+    if status_id in STATUS_CACHE:
+        return STATUS_CACHE[status_id]
+    status = API.get_status(status_id)
+    STATUS_CACHE[status_id] = status
+    return status
+
+def get_screen_name_by_status_id(status_id):
+    
+    status = get_status(status_id)
+    if status:
+        if status.user:
+            return status.user.screen_name
+    return None
 
 if __name__ == '__main__':
     
-    import json
-    import pandas as pd
-    import os
-    import re
-    from urllib.parse import urlparse
-    import csv
-    import validators #for url validation
-
-
-    PROJECT_PATH = r"F:\E\code\twitter-data-collector"
-    RESOURES_PATH = os.path.join(PROJECT_PATH, "resources")
-    USER_INFO_FILE_NAME = "user_info.csv"
-    ALL_TWEETS_FILE_NAME = "all_tweets.csv"
-    USER_FOLLOWERS_FILE_NAME = "user_follower_ids.csv"
-    USER_FOLLOWINGS_FILE_NAME = "user_following_ids.csv"
-    INPUT_FILE_NAME = "sm_org_17_18EBR2010ct_031021.dta"
-
-    #read all keys from json file
-    with open("keys.json") as file:
-        keysjson = json.load(file)
-
-    api_key = keysjson["api_key"]
-    api_key_secret = keysjson["api_key_secret"]
-    bearer_token = keysjson["bearer_token"]
-    access_token = keysjson["access_token"]
-    access_token_secret = keysjson["access_token_secret"]
-
-    #authentication and authrization of the api
-    import tweepy
-    auth = tweepy.OAuth1UserHandler(consumer_key = api_key, consumer_secret = api_key_secret, 
-        access_token= access_token, access_token_secret= access_token_secret)
-
-    tweepy_wrapper = Tweepy_Wrapper(tweepy.API(auth, wait_on_rate_limit=True))
-    for user in tweepy_wrapper.search_user_by_key("baton rouge"):
+    for user in search_user_by_key("baton rouge"):
         print(user.id)
-
-    for user in tweepy_wrapper.search_user_by_key("baton rouge"):
-        print(user.id)
+        
+    screen_name = "chessmensch"
+    print(get_user_info(screen_name=screen_name))
+    print(get_screen_name_by_status_id('1562477309554470912'))
 
 
 
