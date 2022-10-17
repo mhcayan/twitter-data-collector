@@ -1,4 +1,3 @@
-from importlib.resources import Resource
 import json
 import pandas as pd
 import os
@@ -507,6 +506,6 @@ if __name__ == '__main__':
     #get_search_results(os.path.join(RESOURES_PATH, INPUT_FILE_NAME), os.path.join(RESOURES_PATH, SEARCH_RESULT_FILE_NAME))
     # compute_simililarity(os.path.join(RESOURES_PATH, SEARCH_RESULT_FILE_NAME), os.path.join(RESOURES_PATH, SIMILARITY_SCORE_FILE_NAME))
 
-    get_google_search_results(os.path.join(Constants.RESOURES_PATH.value, FILENAME.INPUT.value + Extension.XLSX.value), 
+    get_google_search_results(os.path.join(Constants.RESOURES_PATH.value, FILENAME.SAMPLE_INPUT.value + Extension.XLSX.value), 
             os.path.join(Constants.RESOURES_PATH.value, FILENAME.GOOGLE_SEARCH.value + Extension.CSV.value))
     
