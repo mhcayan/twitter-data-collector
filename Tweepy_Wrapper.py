@@ -44,7 +44,6 @@ def get_user_info(screen_name):
     if screen_name in USER_CACHE:
         print("cache hit! search_key = " + screen_name)
         return USER_CACHE[screen_name]
-
     user_info = API.get_user(screen_name = screen_name)
     USER_CACHE[screen_name] = user_info
     return user_info

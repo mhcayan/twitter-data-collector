@@ -15,6 +15,7 @@ import unicodedata
 from cleanco import basename
 import datetime
 from Constants import *
+import Helper
 
 
 PROJECT_PATH = r"F:\E\code\twitter-data-collector"
@@ -25,7 +26,6 @@ USER_FOLLOWERS_FILE_NAME = "user_follower_ids.csv"
 USER_FOLLOWINGS_FILE_NAME = "user_following_ids.csv"
 INPUT_FILE_NAME = "20220909_input_file_natalie"
 SEARCH_RESULT_FILE_NAME = "user_search_result"
-GOOGLE_SEARCH_FILE_NAME = "google_search_result"
 SIMILARITY_SCORE_FILE_NAME = "similarity_score"
 
 EXTENSION_CSV = ".csv"
@@ -346,12 +346,6 @@ def get_google_search_query(org_name, location):
     search_query = search_query + " site:twitter.com"
     return search_query
 
-def get_status_id_from_status_url(url):
-    return PATTERN.STATUS_URL.value.findall(url)[0]
-
-def get_screen_name_from_profile_url(url):
-    return PATTERN.STATUS_URL.value.findall(url)[0]
-
 def get_google_search_results(input_file, output_csv_file):
 
     df = pd.read_excel(input_file)
@@ -362,6 +356,8 @@ def get_google_search_results(input_file, output_csv_file):
         w.writerow(["ein", "org_name", "twitter", "search_key", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
         "followers_count", "listed_count", "location", "screen_name", "statuses_count", "time_zone", "verified"])
         for index in df.index:
+            if index % 100 == 0:
+                print("%r record processed: " % index)
             org_name = df.at[index, "NAME"]
             ein = df.at[index, "EIN"]
             twitter = df.at[index, "Twitter"]
@@ -372,42 +368,51 @@ def get_google_search_results(input_file, output_csv_file):
             
             #get all the screen_names with google search
             for url in urls:
-                #if the url is a status url
-                if "status" in url:
-                    status_id = get_status_id_from_status_url(url)
-                    screen_name = Tweepy_Wrapper.get_screen_name_by_status_id(status_id)
-                    if screen_name not in screen_name_set:
-                        screen_name_list.append(screen_name)
-                        screen_name_set.add(screen_name)
+                try:
+                    #if the url is a status url
+                    if "status" in url:
+                        status_id = Helper.get_status_id_from_status_url(url)
+                        screen_name = Tweepy_Wrapper.get_screen_name_by_status_id(status_id)
+                        screen_name = screen_name.lower()
+                        if screen_name not in screen_name_set:
+                            screen_name_list.append(screen_name)
+                            screen_name_set.add(screen_name)
 
-                elif "twitter" in url:
-                    screen_name = get_screen_name_from_url(url)
-                    if screen_name not in screen_name_set:
-                        screen_name_list.append(screen_name)
-                        screen_name_set.add(screen_name)
+                    elif "twitter" in url:
+                        screen_name = Helper.get_screen_name_from_profile_url(url)
+                        screen_name = screen_name.lower()
+                        if screen_name not in screen_name_set:
+                            screen_name_list.append(screen_name)
+                            screen_name_set.add(screen_name)
+                except Exception as e:
+                    print("url parsing error. ein: {%r} org_name: {%r} url: {%r}" % (ein, org_name, url))
             
             #collect user info of the screen_names
+            print(screen_name_list)
             for screen_name in screen_name_list:
-                user = Tweepy_Wrapper.get_user_info(screen_name)
-                w.writerow([
-                    ein,
-                    org_name,
-                    twitter,
-                    search_key,
-                    user.id,
-                    user.name,
-                    user.created_at,
-                    user.description.replace('\n', ' ').encode('utf-8'),
-                    user.favourites_count,
-                    user.friends_count,
-                    user.followers_count,
-                    user.listed_count,
-                    user.location.replace('\n', ' ').encode('utf-8'),
-                    user.screen_name,
-                    user.statuses_count,
-                    user.time_zone,
-                    user.verified
-                ])
+                try:
+                    user = Tweepy_Wrapper.get_user_info(screen_name)
+                    w.writerow([
+                        ein,
+                        org_name,
+                        twitter,
+                        search_key,
+                        user.id,
+                        user.name,
+                        user.created_at,
+                        user.description.replace('\n', ' ').encode('utf-8'),
+                        user.favourites_count,
+                        user.friends_count,
+                        user.followers_count,
+                        user.listed_count,
+                        user.location.replace('\n', ' ').encode('utf-8'),
+                        user.screen_name,
+                        user.statuses_count,
+                        user.time_zone,
+                        user.verified
+                    ])
+                except Exception as e:
+                    print("user info fetch error. ein: {%r} org_name: {%r} screen_name: {%r}" % (ein, org_name, screen_name))
 
  
 
@@ -503,5 +508,5 @@ if __name__ == '__main__':
     # compute_simililarity(os.path.join(RESOURES_PATH, SEARCH_RESULT_FILE_NAME), os.path.join(RESOURES_PATH, SIMILARITY_SCORE_FILE_NAME))
 
     get_google_search_results(os.path.join(Constants.RESOURES_PATH.value, FILENAME.INPUT.value + Extension.XLSX.value), 
-            os.path.join(Constants.RESOURES_PATH.value, GOOGLE_SEARCH_FILE_NAME + Extension.CSV.value))
+            os.path.join(Constants.RESOURES_PATH.value, FILENAME.GOOGLE_SEARCH.value + Extension.CSV.value))
     

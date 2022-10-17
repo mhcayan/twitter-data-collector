@@ -12,6 +12,8 @@ class Extension(Enum):
 
 class FILENAME(Enum):
     INPUT = "20220909_input_file_natalie"
+    SAMPLE_INPUT = "sample_input"
+    GOOGLE_SEARCH = "google_search_result"
 
 class PATTERN(Enum):
     PROFILE_URL = re.compile(".*.twitter.com/([^/]*)/?.*")
