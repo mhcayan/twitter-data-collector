@@ -347,7 +347,7 @@ def get_google_search_query(org_name, location):
 
 def get_google_search_results(input_file, output_csv_file):
 
-    df = pd.read_excel(input_file)
+    df = pd.read_excel(input_file, engine="openpyxl")
 
     with open(output_csv_file, "w", newline = '', encoding = "utf-8") as file:
         
