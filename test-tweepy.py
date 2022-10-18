@@ -352,7 +352,7 @@ def get_google_search_results(input_file, output_csv_file):
     with open(output_csv_file, "w", newline = '', encoding = "utf-8") as file:
         
         w = csv.writer(file)
-        w.writerow(["ein", "org_name", "twitter", "search_key", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
+        w.writerow(["ein", "org_name", "twitter", "search_key", "google_url", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
         "followers_count", "listed_count", "location", "screen_name", "statuses_count", "time_zone", "verified"])
         for index in df.index:
             if index % 100 == 0:
@@ -361,8 +361,8 @@ def get_google_search_results(input_file, output_csv_file):
             ein = df.at[index, "EIN"]
             twitter = df.at[index, "Twitter"]
             search_key = get_google_search_query(org_name, location = "baton rouge")
-            urls = Google_Search_Wrapper.getSearchResults(search_key, 10)
-            screen_name_list = []
+            urls = Google_Search_Wrapper.getGoogleSearchResultsByMe(search_key)
+            screen_name_list = [] #cotains both the screen_name and corresponding google search result url
             screen_name_set = set()
             
             #get all the screen_names with google search
@@ -374,14 +374,14 @@ def get_google_search_results(input_file, output_csv_file):
                         screen_name = Tweepy_Wrapper.get_screen_name_by_status_id(status_id)
                         screen_name = screen_name.lower()
                         if screen_name not in screen_name_set:
-                            screen_name_list.append(screen_name)
+                            screen_name_list.append((screen_name, url))
                             screen_name_set.add(screen_name)
 
                     elif "twitter" in url:
                         screen_name = Helper.get_screen_name_from_profile_url(url)
                         screen_name = screen_name.lower()
                         if screen_name not in screen_name_set:
-                            screen_name_list.append(screen_name)
+                            screen_name_list.append((screen_name, url))
                             screen_name_set.add(screen_name)
                 except Exception as e:
                     print("url parsing error. ein: {%r} org_name: {%r} url: {%r}" % (ein, org_name, url))
@@ -390,12 +390,13 @@ def get_google_search_results(input_file, output_csv_file):
             print(screen_name_list)
             for screen_name in screen_name_list:
                 try:
-                    user = Tweepy_Wrapper.get_user_info(screen_name)
+                    user = Tweepy_Wrapper.get_user_info(screen_name[0])
                     w.writerow([
                         ein,
                         org_name,
                         twitter,
                         search_key,
+                        screen_name[1], #this is the url
                         user.id,
                         user.name,
                         user.created_at,
@@ -506,6 +507,6 @@ if __name__ == '__main__':
     #get_search_results(os.path.join(RESOURES_PATH, INPUT_FILE_NAME), os.path.join(RESOURES_PATH, SEARCH_RESULT_FILE_NAME))
     # compute_simililarity(os.path.join(RESOURES_PATH, SEARCH_RESULT_FILE_NAME), os.path.join(RESOURES_PATH, SIMILARITY_SCORE_FILE_NAME))
 
-    get_google_search_results(os.path.join(Constants.RESOURES_PATH.value, FILENAME.SAMPLE_INPUT.value + Extension.XLSX.value), 
+    get_google_search_results(os.path.join(Constants.RESOURES_PATH.value, FILENAME.INPUT.value + Extension.XLSX.value), 
             os.path.join(Constants.RESOURES_PATH.value, FILENAME.GOOGLE_SEARCH.value + Extension.CSV.value))
     
