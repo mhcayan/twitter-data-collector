@@ -35,8 +35,8 @@ def getGoogleSearchResultsByMe(query):
         try_count = try_count - 1
         res = requests.get(complete_url, headers=headers)
         print("response code: %r" % (res.status_code))
-        if res.status_code == 426:
-            print("status code: 426")
+        if res.status_code == 429:
+            print("status code: 429")
             try:
                 retry_after = res.headers["Retry-After"]
                 print("sleeping for %r" % (retry_after))
