@@ -355,8 +355,8 @@ def get_google_search_results(input_file, output_csv_file):
         w.writerow(["ein", "org_name", "twitter", "search_key", "google_url", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
         "followers_count", "listed_count", "location", "screen_name", "statuses_count", "time_zone", "verified"])
         for index in df.index:
-            if index % 100 == 0:
-                print("%r record processed: " % index)
+            if index % 200 == 0:
+                print("%r record processed. " % index)
             org_name = df.at[index, "NAME"]
             ein = df.at[index, "EIN"]
             twitter = df.at[index, "Twitter"]
@@ -387,7 +387,7 @@ def get_google_search_results(input_file, output_csv_file):
                     print("url parsing error. ein: {%r} org_name: {%r} url: {%r}" % (ein, org_name, url))
             
             #collect user info of the screen_names
-            print(screen_name_list)
+
             for screen_name in screen_name_list:
                 try:
                     user = Tweepy_Wrapper.get_user_info(screen_name[0])
@@ -413,6 +413,7 @@ def get_google_search_results(input_file, output_csv_file):
                     ])
                 except Exception as e:
                     print("user info fetch error. ein: {%r} org_name: {%r} screen_name: {%r}" % (ein, org_name, screen_name))
+
 
  
 

@@ -27,12 +27,14 @@ def getSearchResultsByGoogleSearchAPI(query, limit):
 
     
 def getGoogleSearchResultsByMe(query):
+    print("query: " + query)
     complete_url = GOOGLE_SEARCH_URL + query 
     try_count = TRY_COUNT
     url_list = []
     while try_count:
         try_count = try_count - 1
         res = requests.get(complete_url, headers=headers)
+        print("response code: %r" % (res.status_code))
         if res.status_code == 426:
             print("status code: 426")
             try:
@@ -56,7 +58,8 @@ def getGoogleSearchResultsByMe(query):
                     if "twitter" in url:
                         url_list.append(url)
         break
-
+    
+    print("len(url_list): %r\n" % (len(url_list)))
     return url_list
 
 
