@@ -12,10 +12,12 @@ class Extension(Enum):
 
 class FILENAME(Enum):
     INPUT = "20220909_input_file_natalie"
-    SAMPLE_INPUT = "sample_input"
+    SAMPLE_INPUT = "sample_input_20"
     GOOGLE_SEARCH = "google_search_result"
+    BING_SEARCH = "bing_search_result"
 
 class PATTERN(Enum):
-    PROFILE_URL = re.compile(".*.twitter.com/([A-Za-z0-9_]+).*")
+    PROFILE_URL = re.compile(".*.twitter.com/([^\?/]+).*")
     STATUS_URL = re.compile(".*.twitter.com/.*/status/([\d]+).*")
+    HASHTAG_URL = re.compile(".*.twitter.com/hashtag/.*")
     GOOGLE_SEARCH_RESULT_URL = re.compile(r"/url\?q=([a-zA-Z0-9:/\._\-]+).*")

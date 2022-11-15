@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import csv
 import validators
 import Google_Search_Wrapper
+import Bing_Search_Wrapper
 import Tweepy_Wrapper
 import time
 from random import randint
@@ -337,7 +338,7 @@ def get_except_list(similarity_score_file, user_info_file):
     return except_eins
 
 
-def get_google_search_query(org_name, location):
+def get_search_engine_search_query(org_name, location):
     location = location.lower()
     search_query = org_name.lower()
     if location not in search_query:
@@ -360,7 +361,7 @@ def get_google_search_results(input_file, output_csv_file):
             org_name = df.at[index, "NAME"]
             ein = df.at[index, "EIN"]
             twitter = df.at[index, "Twitter"]
-            search_key = get_google_search_query(org_name, location = "baton rouge")
+            search_key = get_search_engine_search_query(org_name, location = "baton rouge")
             urls = Google_Search_Wrapper.getGoogleSearchResultsByMe(search_key)
             screen_name_list = [] #cotains both the screen_name and corresponding google search result url
             screen_name_set = set()
@@ -369,7 +370,7 @@ def get_google_search_results(input_file, output_csv_file):
             for url in urls:
                 try:
                     #if the url is a status url
-                    if "status" in url:
+                    if "status" in url and "twitter" in url:
                         status_id = Helper.get_status_id_from_status_url(url)
                         screen_name = Tweepy_Wrapper.get_screen_name_by_status_id(status_id)
                         screen_name = screen_name.lower()
@@ -416,6 +417,87 @@ def get_google_search_results(input_file, output_csv_file):
 
 
  
+def get_twitter_pages_by_bing_search(input_file, output_csv_file):
+    
+    
+    df = pd.read_excel(input_file, engine="openpyxl")
+
+    with open(output_csv_file, "w", newline = '', encoding = "utf-8") as file:
+        
+        w = csv.writer(file)
+        w.writerow(["ein", "org_name", "twitter", "search_key", "bing_url", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
+        "followers_count", "listed_count", "location", "screen_name", "statuses_count", "time_zone", "verified"])
+        for index in df.index:
+            if index % 200 == 0:
+                print("%r record processed. " % index)
+            if index and index % 3 == 0:
+                time.sleep(1.1)
+            org_name = df.at[index, "NAME"]
+            ein = df.at[index, "EIN"]
+            twitter = df.at[index, "Twitter"]
+            search_key = get_search_engine_search_query(org_name, location = "baton rouge")
+            urls = Bing_Search_Wrapper.get_search_result(search_key=search_key)
+            screen_name_list = [] #cotains both the screen_name and corresponding bing search result url
+            screen_name_set = set()
+            search_result_screen_name_set = set()
+            
+            #get all the screen_names with google search
+            for url in urls:
+                try:
+                    #if the url is a status url
+                    if Helper.is_twitter_status_url(url):
+                        search_result_screen_name = Helper.get_screen_name_from_profile_url(url).lower()
+                        if search_result_screen_name not in screen_name_set and search_result_screen_name not in search_result_screen_name_set:
+                            status_id = Helper.get_status_id_from_status_url(url)
+                            screen_name = Tweepy_Wrapper.get_screen_name_by_status_id(status_id)
+                            ##for some users tweets are private. for them we can't get screen_name by tweet_id. Use the screen_name from search results
+                            if not screen_name:
+                                screen_name = search_result_screen_name
+                            if screen_name not in screen_name_set:
+                                screen_name_list.append((screen_name, url))
+                                screen_name_set.add(screen_name)
+                                search_result_screen_name_set.add(search_result_screen_name)
+
+                    elif "twitter" in url and not Helper.is_twitter_hastag_url(url): #its a twitter profile_url
+                        screen_name = Helper.get_screen_name_from_profile_url(url)
+                        screen_name = screen_name.lower()
+                        if screen_name not in screen_name_set:
+                            screen_name_list.append((screen_name, url))
+                            screen_name_set.add(screen_name)
+
+                except Exception as e:
+                    print("url parsing error. ein: {%r} org_name: {%r} url: {%r}" % (ein, org_name, url))
+                    print(e)
+            
+            #collect user info of the screen_names
+
+            for screen_name in screen_name_list:
+                try:
+                    user = Tweepy_Wrapper.get_user_info(screen_name[0])
+                    w.writerow([
+                        ein,
+                        org_name,
+                        twitter,
+                        search_key,
+                        screen_name[1], #this is the search result url
+                        user.id,
+                        user.name,
+                        user.created_at,
+                        user.description.replace('\n', ' ').encode('utf-8'),
+                        user.favourites_count,
+                        user.friends_count,
+                        user.followers_count,
+                        user.listed_count,
+                        user.location.replace('\n', ' ').encode('utf-8'),
+                        user.screen_name,
+                        user.statuses_count,
+                        user.time_zone,
+                        user.verified
+                    ])
+                except Exception as e:
+                    print("user info fetch error. ein: {%r} org_name: {%r} screen_name: {%r}" % (ein, org_name, screen_name))
+
+
 
 if __name__ == '__main__':
     
@@ -508,6 +590,8 @@ if __name__ == '__main__':
     #get_search_results(os.path.join(RESOURES_PATH, INPUT_FILE_NAME), os.path.join(RESOURES_PATH, SEARCH_RESULT_FILE_NAME))
     # compute_simililarity(os.path.join(RESOURES_PATH, SEARCH_RESULT_FILE_NAME), os.path.join(RESOURES_PATH, SIMILARITY_SCORE_FILE_NAME))
 
-    get_google_search_results(os.path.join(Constants.RESOURES_PATH.value, FILENAME.INPUT.value + Extension.XLSX.value), 
-            os.path.join(Constants.RESOURES_PATH.value, FILENAME.GOOGLE_SEARCH.value + Extension.CSV.value))
+    # get_google_search_results(os.path.join(Constants.RESOURES_PATH.value, FILENAME.INPUT.value + Extension.XLSX.value), 
+    #         os.path.join(Constants.RESOURES_PATH.value, FILENAME.GOOGLE_SEARCH.value + Extension.CSV.value))
     
+    get_twitter_pages_by_bing_search(os.path.join(Constants.RESOURES_PATH.value, FILENAME.SAMPLE_INPUT.value + Extension.XLSX.value), 
+            os.path.join(Constants.RESOURES_PATH.value, FILENAME.BING_SEARCH.value + Extension.CSV.value))

@@ -52,8 +52,12 @@ def get_status(status_id):
     
     if status_id in STATUS_CACHE:
         return STATUS_CACHE[status_id]
-    status = API.get_status(status_id)
-    STATUS_CACHE[status_id] = status
+    status = None
+    try:
+        status = API.get_status(status_id)
+        STATUS_CACHE[status_id] = status
+    except Exception as e:
+        print(f"status_id = {status_id} error = {e}")
     return status
 
 def get_screen_name_by_status_id(status_id):
@@ -66,12 +70,12 @@ def get_screen_name_by_status_id(status_id):
 
 if __name__ == '__main__':
     
-    for user in search_user_by_key("baton rouge"):
-        print(user.id)
+    # for user in search_user_by_key("baton rouge"):
+    #     print(user.id)
         
-    screen_name = "chessmensch"
-    print(get_user_info(screen_name=screen_name))
-    print(get_screen_name_by_status_id('1562477309554470912'))
+    # screen_name = "chessmensch"
+    # print(get_user_info(screen_name=screen_name))
+    print(get_screen_name_by_status_id('1391029374716157953'))
 
 
 
