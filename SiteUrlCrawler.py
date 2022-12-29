@@ -214,3 +214,11 @@ class CrawlerThread(threading.Thread):
         """
         if self.site_crawler.logging_enabled:
             print(self.getName() + " (CrawlerThread): " + message)
+
+if __name__ == "__main__":
+    key = "https://youtu.be/xvu6gBm0ySQ"
+    crawler = SiteUrlCrawler("https://www.cauw.org/")
+    for url in crawler.crawl(mode=SiteUrlCrawler.Mode.ALL):
+        # print(url)
+        if url.find("cauw") == -1:
+            print(url)

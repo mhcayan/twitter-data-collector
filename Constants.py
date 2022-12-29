@@ -4,17 +4,35 @@ import re
 class Constants(Enum):
 
     PROJECT_PATH = r"F:\E\code\twitter-data-collector"
-    RESOURES_PATH = os.path.join(PROJECT_PATH, "resources")
+    RESOURCES_PATH = os.path.join(PROJECT_PATH, r"resources\20221130")
+    LOG_PATH = os.path.join(RESOURCES_PATH, r"log")
+    TWEETER_CACHE_FILE_PATH = os.path.join(RESOURCES_PATH, r"user_info_cache.csv")
+    TWEETER_USER_INFO_CACHE_FILE_PATH = os.path.join(RESOURCES_PATH, r"user_info_cache.pickle")
+    LOG_FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
+    MINIMUM_SEARCH_KEY_LENGTH = 3
+    
 
 class Extension(Enum):
     XLSX = ".xlsx"
     CSV = ".csv"
+    LOG = ".log"
+    TXT = ".txt"
 
 class FILENAME(Enum):
-    INPUT = "20220909_input_file_natalie"
-    SAMPLE_INPUT = "sample_input_20"
+    CLEANED_INPUT_FILE = "0_manually_cleaned_twitter"
+    USER_INFO_FILE = "1_twitter_user_info"
+    SAMPLE_INPUT = "sample_input_5"
     GOOGLE_SEARCH = "google_search_result"
     BING_SEARCH = "bing_search_result"
+    BING_SEARCH_FOR_WEBSITE = "2a_bing_search_for_website"
+    EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE = "2b_external_link_from_bing_searched_website"
+    TEST_LOG_1 = "test_log_1"
+    TEST_LOG_2 = "test_log_2"
+    HIGH_FREQUENCY_WORDS_20K = "20k"
+    HIGH_FREQUENT_WORDS_IN_ORG_NAMES_20K = "high_frequent_words_in_org_names_using_20k_file"
+    RARE_WORDS_IN_ORG_NAMES_20K = "rare_words_in_org_names_using_20k_file"
+    SHORT_SEARCH_KEYS = "short_search_keys"
+    SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS = "3a_twitter_search_results_for_single_keyword"
 
 class PATTERN(Enum):
     PROFILE_URL = re.compile(".*.twitter.com/([^\?/]+).*")

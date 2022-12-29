@@ -1,4 +1,8 @@
 import imp
-from Constants import *
-print(Constants.PROJECT_PATH.value)
-print(Extension.XLSX.value)
+from SiteUrlCrawler import SiteUrlCrawler
+import Helper
+website = "https://sites.google.com/site/louisianachess/chess-club-locations-info/baton-rouge-chess-club"
+crawler = SiteUrlCrawler(website)
+for url in crawler.crawl(SiteUrlCrawler.Mode.EXTERNAL):
+    print("Found: " + url)
+    print("Resolved: " + Helper.resolve(url))

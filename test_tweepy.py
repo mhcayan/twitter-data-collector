@@ -19,18 +19,13 @@ import Helper
 
 
 PROJECT_PATH = r"F:\E\code\twitter-data-collector"
-RESOURES_PATH = os.path.join(PROJECT_PATH, "resources")
 USER_INFO_FILE_NAME = "user_info"
 ALL_TWEETS_FILE_NAME = "all_tweets.csv"
 USER_FOLLOWERS_FILE_NAME = "user_follower_ids.csv"
 USER_FOLLOWINGS_FILE_NAME = "user_following_ids.csv"
-INPUT_FILE_NAME = "20220909_input_file_natalie"
+
 SEARCH_RESULT_FILE_NAME = "user_search_result"
 SIMILARITY_SCORE_FILE_NAME = "similarity_score"
-
-EXTENSION_CSV = ".csv"
-EXTENSION_XLSX = ".xlsx"
-
 
 
 def isUrlValid(url):
@@ -82,7 +77,7 @@ def generate_twitter_user_info_file(screen_name_list, output_file):
         w.writerow(user_attr_list)
         for ein, screen_name in screen_name_list:
             try:
-                user = Tweepy_Wrapper.get_user(screen_name = screen_name)
+                user = Tweepy_Wrapper.get_user_info(screen_name = screen_name)
                 w.writerow(
                     [
                         ein,
@@ -102,7 +97,9 @@ def generate_twitter_user_info_file(screen_name_list, output_file):
                     ]
                 )
             except Exception as e:
+                print(e)
                 print("Exception of type " + str(type(e)) + " details: ein = " + str(ein) + " screen_name = " + str(screen_name))
+        Tweepy_Wrapper.save_cache_to_pickle()
 
 
 def get_user_tweets(output_csv_file, max_tweet_count, screen_name_list):
@@ -181,6 +178,82 @@ def get_search_keys_from_name(name):
             search_keys.append(' '.join(words[i:i+l]))
             i = i + 1
     return search_keys
+
+#param sorted_idf_dict (key = word, value = idf_score). it can be any dict as long as the key is word
+#write all the hight frequcny words in the input dictioary key in a file
+def write_high_frequent_words_in_org_names(sorted_idf_dict):
+    with (
+        open(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.HIGH_FREQUENT_WORDS_IN_ORG_NAMES_20K.value + Extension.TXT.value), "w") as f_frequent,
+        open(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.RARE_WORDS_IN_ORG_NAMES_20K.value + Extension.TXT.value), "w") as f_rare
+    ):
+        for word, idf in sorted_idf_dict.items():
+            if Helper.is_high_frequency_word(word):
+                f_frequent.write(word + "\n")
+            else:
+                f_rare.write(word + "\n")
+
+def get_twitter_search_result_for_single_keyword(input_file, output_csv_file):
+
+    df = pd.read_excel(input_file)
+    unique_org_names = set(df["NAME"].apply(lambda name : name.lower().strip()))
+    
+    #we are not using idf right now
+    idf_dict = Helper.compute_IDF(unique_org_names)
+    sorted_idf_dict = dict(sorted(idf_dict.items(), key=lambda item: item[1], reverse=True))
+
+
+    with open(output_csv_file, "w", newline = '', encoding = "utf-8") as file:
+        
+        w = csv.writer(file)
+        w.writerow(["ein", "org_name", "twitter", "search_key", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
+        "followers_count", "listed_count", "location", "screen_name", "statuses_count", "time_zone", "verified"])
+
+        progress_counter = 0
+        for index in df.index:
+            ein = df.at[index, "EIN"]
+            progress_counter = progress_counter + 1
+            org_name = df.at[index, "NAME"]
+            twitter = df.at[index, "Twitter"]
+            print("processing organization: " + org_name)
+            search_keys = Helper.get_single_word_search_keys_from_name(org_name)
+            unique_ids = set()
+            for search_key in search_keys:
+                while True:
+                    try:
+                        users = Tweepy_Wrapper.search_user_by_key(search_key)
+                        break
+                    except Exception as e:
+                        print(e)
+                        time.sleep(15 * 60 + randint(1, 100))
+                        Tweepy_Wrapper.update_api()
+                        
+                    
+                for user in users:
+                    if user.id not in unique_ids:
+                        unique_ids.add(user.id)
+                        w.writerow([
+                            ein,
+                            org_name,
+                            twitter,
+                            search_key,
+                            user.id,
+                            user.name,
+                            user.created_at,
+                            user.description.replace('\n', ' ').encode('utf-8'),
+                            user.favourites_count,
+                            user.friends_count,
+                            user.followers_count,
+                            user.listed_count,
+                            user.location.replace('\n', ' ').encode('utf-8'),
+                            user.screen_name,
+                            user.statuses_count,
+                            user.time_zone,
+                            user.verified
+                        ])
+           
+            if progress_counter % 100 == 0:
+                print("%r record processed..." % progress_counter)
+
 
 def get_search_results(input_file, output_csv_file, except_ein_list):
 
@@ -346,6 +419,17 @@ def get_search_engine_search_query(org_name, location):
     search_query = search_query + " site:twitter.com"
     return search_query
 
+"""
+for given org_name and location return the search_engine query string
+if location string does not exists in org_name string, then append it to org_name to form search_query
+"""
+def get_search_engine_search_query_for_website(org_name, location):
+    location = location.lower()
+    search_query = org_name.lower()
+    if location not in search_query:
+        search_query = search_query + " " + location
+    return search_query
+
 def get_google_search_results(input_file, output_csv_file):
 
     df = pd.read_excel(input_file, engine="openpyxl")
@@ -497,16 +581,60 @@ def get_twitter_pages_by_bing_search(input_file, output_csv_file):
                 except Exception as e:
                     print("user info fetch error. ein: {%r} org_name: {%r} screen_name: {%r}" % (ein, org_name, screen_name))
 
+"""
+for each organization, search bing and records the result urls
+"""
+def get_bing_search_result(input_file_name, output_csv_file):
+    
+    with open(output_csv_file, "w", newline = '', encoding = "utf-8") as file:
+        
+        df = pd.read_excel(input_file_name)
+        w = csv.writer(file)
+        w.writerow(["ein", "org_name", "search_key", "search_result_url"])
+        for index in df.index:
+            if index % 100 == 0:
+                print(f"{index} record processed..")
+            org_name = df.at[index, "NAME"]
+            ein = df.at[index, "EIN"]
+            search_key = get_search_engine_search_query_for_website(org_name=org_name, location="baton rouge")
+            urls = Bing_Search_Wrapper.get_search_result(search_key=search_key)
+            for url in urls:
+                w.writerow([ein, org_name, search_key, url])
+
+def get_external_link_from_website(input_csv_file, output_csv_file):
+
+    from SiteUrlCrawler import SiteUrlCrawler
+    df = pd.read_csv(input_csv_file)
+    with open(output_csv_file, "w", newline='', encoding = "utf-8") as file:
+        w = csv.writer(file)
+        w.writerow(["ein", "org_name", "search_key", "search_result_url", "external_url"])
+        for index in df.index:
+            if index % 100 == 0:
+                print(f"{index} record processed..")
+            ein = df.at[index, 'ein']
+            org_name = df.at[index, 'org_name']
+            search_key = df.at[index, 'search_key']
+            search_result_url = df.at[index, 'search_result_url']
+            try:
+                crawler = SiteUrlCrawler(search_result_url)
+                for external_url in crawler.crawl(SiteUrlCrawler.Mode.EXTERNAL):
+                    w.writerow([ein, org_name, search_key, search_result_url, external_url])
+            except Exception as e:
+                print(e)
+                
 
 
 if __name__ == '__main__':
     
-    # #get user info from twitter
-    # screen_name_list = get_user_screen_names(os.path.join(RESOURES_PATH, INPUT_FILE_NAME + EXTENSION_XLSX))
-    # user_info_file_name = get_current_timestamp() + "_" + USER_INFO_FILE_NAME + "-" + INPUT_FILE_NAME
-
+    ##get user info from twitter
+    ##get the basic user info for the organizations for which twitter account was found by natalie
+    # screen_name_list = get_user_screen_names(os.path.join(Constants.RESOURCES_PATH.value,  FILENAME.CLEANED_INPUT_FILE.value+ Extension.XLSX.value))
     # generate_twitter_user_info_file(screen_name_list, 
-    #     os.path.join(RESOURES_PATH, user_info_file_name + EXTENSION_CSV))
+    #     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.USER_INFO_FILE.value + Extension.CSV.value))
+
+    get_twitter_search_result_for_single_keyword(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.CLEANED_INPUT_FILE.value + Extension.XLSX.value),
+        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS.value + Extension.CSV.value))
+
 
     # """
     # add column is_match in similarity_score csv. is_match = 1 if it's a match with manually found search result
@@ -593,5 +721,11 @@ if __name__ == '__main__':
     # get_google_search_results(os.path.join(Constants.RESOURES_PATH.value, FILENAME.INPUT.value + Extension.XLSX.value), 
     #         os.path.join(Constants.RESOURES_PATH.value, FILENAME.GOOGLE_SEARCH.value + Extension.CSV.value))
     
-    get_twitter_pages_by_bing_search(os.path.join(Constants.RESOURES_PATH.value, FILENAME.SAMPLE_INPUT.value + Extension.XLSX.value), 
-            os.path.join(Constants.RESOURES_PATH.value, FILENAME.BING_SEARCH.value + Extension.CSV.value))
+    # get_twitter_pages_by_bing_search(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.INPUT.value + Extension.XLSX.value), 
+    #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.BING_SEARCH.value + Extension.CSV.value))
+
+    # get_bing_search_result(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.INPUT.value + Extension.XLSX.value), 
+    #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.BING_SEARCH_FOR_WEBSITE.value + Extension.CSV.value))
+
+    # get_external_link_from_website(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.BING_SEARCH_FOR_WEBSITE.value + Extension.CSV.value), 
+    #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value))

@@ -1,6 +1,9 @@
 import json
 import tweepy
-
+from Constants import *
+import pickle
+from UserDTO import *
+import Helper
 #read all keys from json file
 with open("keys.json") as file:
     keysjson = json.load(file)
@@ -22,7 +25,31 @@ API = createAPI()
 SEARCH_CACHE = dict()
 USER_CACHE = dict()
 STATUS_CACHE = dict()
-    
+
+
+#load user info cache from pickle file
+def load_cache_from_pickle():
+    if os.path.exists(Constants.TWEETER_USER_INFO_CACHE_FILE_PATH.value):
+        global USER_CACHE
+        with open(Constants.TWEETER_USER_INFO_CACHE_FILE_PATH.value, 'rb') as handle:
+            USER_CACHE = pickle.load(handle)
+    else:
+        print("warning: user cache file not found..")
+
+#save user info cahce to a pickle file
+def save_cache_to_pickle():
+    global USER_CACHE
+    if len(USER_CACHE):
+        with open(Constants.TWEETER_USER_INFO_CACHE_FILE_PATH.value, 'wb') as handle:
+            print(f"saving user info cache to {Constants.TWEETER_USER_INFO_CACHE_FILE_PATH.value}")
+            pickle.dump(USER_CACHE, handle)
+
+load_cache_from_pickle()
+
+def clear_cache():
+    global USER_CACHE
+    USER_CACHE.clear()
+
 def update_api():
     global API
     API = createAPI()
@@ -75,8 +102,17 @@ if __name__ == '__main__':
         
     # screen_name = "chessmensch"
     # print(get_user_info(screen_name=screen_name))
-    print(get_screen_name_by_status_id('1391029374716157953'))
-
+    screen_name = "EBRSheriff"
+    user  = get_user_info(screen_name=screen_name)
+    # print(type(user.created_at))
+    l = [user.id,user.name,user.created_at,user.description,user.favourites_count,user.friends_count,user.followers_count,user.listed_count,user.location,user.screen_name,user.statuses_count,user.time_zone,user.verified]
+    print(l)
+    save_cache_to_pickle()
+    # clear_cache()
+    # print("-----------------------")
+    # user = get_user_info(screen_name=screen_name)
+    # l = [user.id,user.name,user.created_at,user.description.replace('\n', ' '),user.favourites_count,user.friends_count,user.followers_count,user.listed_count,user.location.replace('\n', ' '),user.screen_name,user.statuses_count,user.time_zone,user.verified]
+    # print(l)
 
 
 
