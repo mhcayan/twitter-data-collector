@@ -601,28 +601,81 @@ def get_bing_search_result(input_file_name, output_csv_file):
             for url in urls:
                 w.writerow([ein, org_name, search_key, url])
 
-def get_external_link_from_website(input_csv_file, output_csv_file):
+def get_external_link_from_website(input_csv_file, output_csv_file, netloc_frequency_for_bing_search_csv_file):
 
-    from SiteUrlCrawler import SiteUrlCrawler
-    df = pd.read_csv(input_csv_file)
-    with open(output_csv_file, "w", newline='', encoding = "utf-8") as file:
+    exclude_netlocs = set(["www.apartments.com",
+                            "www.msn.com",
+                            "www.zillo.com",
+                            "www.salary.com",
+                            "en-gb.facebook.com",
+                            "www.instagram.com",
+                            "www.voa.org",
+                            "business.facebook.com",
+                            "www.usnews.com",
+                            "doctor.webmd.com",
+                            "www.gofundme.com",
+                            "local.yahoo.com",
+                            "www.glassdoor.com",
+                            "twitter.com",
+                            "apps.apple.com",
+                            "www.apartments.com",
+                            "www.cnn.com",
+                            "www.msn.com",
+                            "www.apartmentguide.com",
+                            "www.usbanklocations.com",
+                            "www.independent.co.uk",
+                            "www.secure.facebook.com",
+                            "www.rent.com"])
+    netloc_frequency_df = pd.read_csv(netloc_frequency_for_bing_search_csv_file, header=None, names=['netloc_url', 'frequency'])
+    netloc_frequency_dict = dict(zip(netloc_frequency_df["netloc_url"], netloc_frequency_df["frequency"]))
+    
+    input_df = pd.read_csv(input_csv_file)
+    unique_search_result_urls = input_df['search_result_url'].unique()
+    print(len(unique_search_result_urls))
+    #remove those urls whose netloc frequency is very high
+    unique_search_result_urls = [ url for url in unique_search_result_urls if netloc_frequency_dict[Helper.get_netloc(url)] < 30 ]
+    print(len(unique_search_result_urls))
+
+    #remove those urls whose netloc is in exclude_netlocs
+    unique_search_result_urls = [ url for url in unique_search_result_urls if Helper.get_netloc(url) not in exclude_netlocs ]
+    print(len(unique_search_result_urls))
+    
+    import WebSiteCrawler
+    crawled_urls = WebSiteCrawler.crawl_urls(unique_search_result_urls)
+    crawled_urls_dict = dict(zip(unique_search_result_urls, crawled_urls)) #key = bing search result url #value = list of external links crawled from that url
+
+
+    with open(output_csv_file, "w", newline = '', encoding = "utf-8") as file:
         w = csv.writer(file)
-        w.writerow(["ein", "org_name", "search_key", "search_result_url", "external_url"])
-        for index in df.index:
-            if index % 100 == 0:
-                print(f"{index} record processed..")
-            ein = df.at[index, 'ein']
-            org_name = df.at[index, 'org_name']
-            search_key = df.at[index, 'search_key']
-            search_result_url = df.at[index, 'search_result_url']
-            try:
-                crawler = SiteUrlCrawler(search_result_url)
-                for external_url in crawler.crawl(SiteUrlCrawler.Mode.EXTERNAL):
-                    w.writerow([ein, org_name, search_key, search_result_url, external_url])
-            except Exception as e:
-                print(e)
-                
+        w.writerow(["ein", "org_name", "search_key", "search_result_url", "scrapped_external_link_from_search_result_url"])
 
+        for index in input_df.index:
+            if index % 300 == 0:
+                print(f"{index} recored processed..")
+
+            search_result_url = input_df.at[index, "search_result_url"]
+            if search_result_url not in crawled_urls_dict:
+                continue
+            
+            ein = input_df.at[index, "ein"]
+            org_name = input_df.at[index, "org_name"]
+            search_key = input_df.at[index, "search_key"]
+
+            scrapped_external_links = crawled_urls_dict[search_result_url]
+
+            for scrapped_external_link in scrapped_external_links:
+                w.writerow([ein, org_name, search_key, search_result_url, scrapped_external_link])
+    
+
+def filter_twitter_links_from_exteral_links(input_file, output_file):
+
+    df = pd.read_csv(input_file)
+    print(len(df))
+    external_link_column_name = "scrapped_external_link_from_search_result_url"
+    df[external_link_column_name] = df[external_link_column_name].str.lower()
+    df = df[df[external_link_column_name].str.fullmatch(re.compile(".*twitter.com/([^\?/]+)/?"))]
+    print(df.head(50))
+    
 
 if __name__ == '__main__':
     
@@ -632,8 +685,8 @@ if __name__ == '__main__':
     # generate_twitter_user_info_file(screen_name_list, 
     #     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.USER_INFO_FILE.value + Extension.CSV.value))
 
-    get_twitter_search_result_for_single_keyword(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.CLEANED_INPUT_FILE.value + Extension.XLSX.value),
-        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS.value + Extension.CSV.value))
+    # get_twitter_search_result_for_single_keyword(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.CLEANED_INPUT_FILE.value + Extension.XLSX.value),
+    #     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS.value + Extension.CSV.value))
 
 
     # """
@@ -728,4 +781,8 @@ if __name__ == '__main__':
     #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.BING_SEARCH_FOR_WEBSITE.value + Extension.CSV.value))
 
     # get_external_link_from_website(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.BING_SEARCH_FOR_WEBSITE.value + Extension.CSV.value), 
-    #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value))
+    #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
+    #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.NETLOCK_FREQUENCY_FOR_BING_SEARCH.value + Extension.CSV.value))
+
+    filter_twitter_links_from_exteral_links(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value), 
+        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_TWITTER_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value))

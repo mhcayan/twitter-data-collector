@@ -6,6 +6,7 @@ import logging
 from Constants import *
 from Constants import FILENAME
 from Constants import Extension
+from urllib.parse import urlparse
 
 FREQUENT_WORD_SET = set()
 
@@ -69,7 +70,7 @@ def resolve(url):
 #source: https://stackoverflow.com/a/11233293/6752274
 def setup_logger(name, log_file, level=logging.INFO):
 
-    handler = logging.FileHandler(log_file)        
+    handler = logging.FileHandler(log_file, encoding='utf-8')        
     handler.setFormatter(logging.Formatter(Constants.LOG_FORMAT.value))
 
     logger = logging.getLogger(name)
@@ -119,7 +120,15 @@ def compute_IDF_by_sklearn(documents):
         idf_dict[word] = tf.idf_[tf.vocabulary_[word]]
     return idf_dict
 
+def get_netloc(url):
+    parsed_url = urlparse(url)
+    return parsed_url.netloc
 
+#returns the extension(e.g. .php) for the given input url
+#https://stackoverflow.com/a/4776959/6752274
+def get_url_extension(url):
+    path = urlparse(url).path
+    return os.path.splitext(path)[1]
 
 if __name__ == "__main__":
     status_url = "https://twitter.com/@CAUW/status/1575228220991049728"
@@ -131,4 +140,6 @@ if __name__ == "__main__":
     # for key, value in idf_dict.items():
     #     print(f"{key} : {value}")
     # print(dict(sorted(idf_dict.items(), key=lambda item: item[1])))
-    print(get_single_word_search_keys_from_name("A bdkfjDl union kz LKf supeR "))
+    # print(get_single_word_search_keys_from_name("A bdkfjDl union kz LKf supeR "))
+    # print(get_netloc("https://google.com"))
+    print(get_url_extension("http://lpdb.la.gov/Serving%20The%20Public/Programs/Baton%20Rouge%20Capital%20Conflict%20Office.php"))
