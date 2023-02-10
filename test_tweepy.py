@@ -666,16 +666,62 @@ def get_external_link_from_website(input_csv_file, output_csv_file, netloc_frequ
             for scrapped_external_link in scrapped_external_links:
                 w.writerow([ein, org_name, search_key, search_result_url, scrapped_external_link])
     
-
 def filter_twitter_links_from_exteral_links(input_file, output_file):
 
     df = pd.read_csv(input_file)
-    print(len(df))
+
     external_link_column_name = "scrapped_external_link_from_search_result_url"
     df[external_link_column_name] = df[external_link_column_name].str.lower()
+    #remove the external links, which are not twitter link
     df = df[df[external_link_column_name].str.fullmatch(re.compile(".*twitter.com/([^\?/]+)/?"))]
-    print(df.head(50))
-    
+
+    #for an organization we there might be duplicate twitter link collected. dictionary is used to remove those duplicates
+    from collections import defaultdict
+    screen_name_dict = defaultdict(list) #key = ein, value = list of screen_name found from websites
+
+    user_attr_list = ["ein", "org_name", "website_twitter_link", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
+        "followers_count", "listed_count", "location", "screen_name", "statuses_count", "time_zone", "verified"]
+
+    with open(output_file, "w", newline = '', encoding = "utf-8") as file:
+        w = csv.writer(file)
+        w.writerow(user_attr_list)
+        for index in df.index:
+            if index and index % 300 == 0:
+                print(f"{index} record processed..")
+            ein = df.at[index, "ein"]
+            org_name = df.at[index, "org_name"]
+            wesite_twitter_link = df.at[index, "scrapped_external_link_from_search_result_url"]
+            screen_name = Helper.get_screen_name_from_profile_url(wesite_twitter_link)
+            if not screen_name:
+                continue
+            if ein in screen_name_dict and screen_name in screen_name_dict.get(ein):
+                continue
+            screen_name_dict[ein].append(screen_name)
+            try:
+                user = Tweepy_Wrapper.get_user_info(screen_name)
+                w.writerow([
+                    ein,
+                    org_name,
+                    wesite_twitter_link,
+                    user.id,
+                    user.name,
+                    user.created_at,
+                    user.description.replace('\n', ' ').encode('utf-8'),
+                    user.favourites_count,
+                    user.friends_count,
+                    user.followers_count,
+                    user.listed_count,
+                    user.location.replace('\n', ' ').encode('utf-8'),
+                    user.screen_name,
+                    user.statuses_count,
+                    user.time_zone,
+                    user.verified
+                ])
+            except Exception as e:
+                print("user info fetch error. ein: {%r} org_name: {%r} screen_name: {%r}" % (ein, org_name, screen_name))
+        Tweepy_Wrapper.save_cache_to_pickle()
+
+        
 
 if __name__ == '__main__':
     
@@ -784,5 +830,5 @@ if __name__ == '__main__':
     #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
     #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.NETLOCK_FREQUENCY_FOR_BING_SEARCH.value + Extension.CSV.value))
 
-    filter_twitter_links_from_exteral_links(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value), 
-        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_TWITTER_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value))
+    filter_twitter_links_from_exteral_links(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
+        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value))

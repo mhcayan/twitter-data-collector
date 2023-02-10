@@ -26,6 +26,7 @@ class FILENAME(Enum):
     BING_SEARCH = "bing_search_result"
     BING_SEARCH_FOR_WEBSITE = "2a_bing_search_for_website"
     EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE = "2b_external_link_from_bing_searched_website"
+    TEST40_EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE = "test_40_external_link_from_bing_searched_website"
     TEST_LOG_1 = "test_log_1"
     TEST_LOG_2 = "test_log_2"
     WEBPAGE_SCRAPPER_LOG = "website_crawler_log"
@@ -35,7 +36,8 @@ class FILENAME(Enum):
     SHORT_SEARCH_KEYS = "short_search_keys"
     SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS = "3a_twitter_search_results_for_single_keyword"
     NETLOCK_FREQUENCY_FOR_BING_SEARCH = "2c_netlock_frequency_for_bing_search" #this file contains the frequncy of the netlock for the bing search result(file: 2a)
-    EXTERNAL_TWITTER_LINK_FROM_BING_SEARCHED_WEBSITE = "2d_external_twitter_link_from_bing_searched_website"
+    TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE = "2d_twitter_link_data_from_bing_searched_website"
+    
 
 class PATTERN(Enum):
     PROFILE_URL = re.compile(".*.twitter.com/([^\?/]+).*")
