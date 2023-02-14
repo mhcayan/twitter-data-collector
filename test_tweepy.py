@@ -721,7 +721,90 @@ def filter_twitter_links_from_exteral_links(input_file, output_file):
                 print("user info fetch error. ein: {%r} org_name: {%r} screen_name: {%r}" % (ein, org_name, screen_name))
         Tweepy_Wrapper.save_cache_to_pickle()
 
+def get_ein_twitterids_dict(df):
+    return {k: set(g["twitter_id"].tolist()) for k,g in df.groupby("ein")}
+
+def get_twitter_info_dict(input_df):
+    df = input_df.copy()
+    df.set_index("twitter_id", drop=True, inplace=True)
+    df = df[~df.index.duplicated(keep = 'first')]
+    return df.to_dict(orient="index")
+
+def merge_search_results(orig_file, 
+                        twitter_search_result, 
+                        twitter_single_keyword_search_result = None, 
+                        bing_search_result = None, 
+                        website_scrapped_result =None,
+                        output_file = None):
+    # ugly code :(
+    twitter_info_dicts = []
+    search_result_dicts = []
+    df = pd.read_csv(twitter_search_result, encoding='utf-8')
+    search_result_dicts.append(get_ein_twitterids_dict(df))
+    twitter_info_dicts.append(get_twitter_info_dict(df))
+
+    
+    df = pd.read_csv(twitter_single_keyword_search_result, encoding='utf-8')
+    dict_twitter_single_keyword_search_result = get_ein_twitterids_dict(df)
+    search_result_dicts.append(get_ein_twitterids_dict(df))
+    twitter_info_dicts.append(get_twitter_info_dict(df))
+
+    df = pd.read_csv(bing_search_result, encoding='utf-8')
+    dict_twitter_single_keyword_search_result = get_ein_twitterids_dict(df)
+    search_result_dicts.append(get_ein_twitterids_dict(df))
+    twitter_info_dicts.append(get_twitter_info_dict(df))
+
+    df = pd.read_csv(website_scrapped_result, encoding='utf-8')
+    dict_twitter_single_keyword_search_result = get_ein_twitterids_dict(df)
+    search_result_dicts.append(get_ein_twitterids_dict(df))
+    twitter_info_dicts.append(get_twitter_info_dict(df))
+
+    #merge all the twitter_info_dicts
+    twitter_info_dict = dict()
+    for d in twitter_info_dicts:
+        twitter_info_dict = twitter_info_dict | d
+
+    
+
+    attr_list = ["ein", "org_name", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
+        "followers_count", "listed_count", "location", "screen_name", "statuses_count", "time_zone", "verified"]
+
+    with open(output_file, "w", newline = '', encoding = "utf-8") as file:
+        w = csv.writer(file)
+        w.writerow(attr_list)
+        df = pd.read_excel(orig_file)
+        for index in df.index:
+            ein = df.at[index, "EIN"]
+            org_name = df.at[index, "NAME"]
+            found_twitter_ids = set()
+            for search_result_dict in search_result_dicts:
+                ids = search_result_dict.get(ein)
+                if ids:
+                    found_twitter_ids = found_twitter_ids.union(ids)
+            if not found_twitter_ids:
+                continue
         
+            for twitter_id in found_twitter_ids:
+                    twitter_info = twitter_info_dict[twitter_id]
+                    w.writerow([
+                        ein,
+                        org_name,
+                        twitter_id,
+                        twitter_info["name"],
+                        twitter_info["created_at"],
+                        twitter_info["description"].deconde,
+                        twitter_info["favourites_count"],
+                        twitter_info["friends_count"],
+                        twitter_info["followers_count"],
+                        twitter_info["listed_count"],
+                        twitter_info["location"],
+                        twitter_info["screen_name"],
+                        twitter_info["statuses_count"],
+                        twitter_info["time_zone"],
+                        twitter_info["verified"]
+                    ])
+    
+    
 
 if __name__ == '__main__':
     
@@ -830,5 +913,12 @@ if __name__ == '__main__':
     #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
     #         os.path.join(Constants.RESOURCES_PATH.value, FILENAME.NETLOCK_FREQUENCY_FOR_BING_SEARCH.value + Extension.CSV.value))
 
-    filter_twitter_links_from_exteral_links(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
-        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value))
+    # filter_twitter_links_from_exteral_links(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
+    #     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value))
+
+    merge_search_results(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.CLEANED_INPUT_FILE.value + Extension.XLSX.value),
+                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_SEARCH_RESULTS.value + Extension.CSV.value),
+                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS.value + Extension.CSV.value),
+                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.BING_SEARCH.value + Extension.CSV.value),
+                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
+                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS.value + Extension.CSV.value))

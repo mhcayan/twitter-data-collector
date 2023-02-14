@@ -35,8 +35,10 @@ class FILENAME(Enum):
     RARE_WORDS_IN_ORG_NAMES_20K = "rare_words_in_org_names_using_20k_file"
     SHORT_SEARCH_KEYS = "short_search_keys"
     SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS = "3a_twitter_search_results_for_single_keyword"
+    TWITTER_SEARCH_RESULTS = "20220908_user_search_result-20220909_input_file_natalie"
     NETLOCK_FREQUENCY_FOR_BING_SEARCH = "2c_netlock_frequency_for_bing_search" #this file contains the frequncy of the netlock for the bing search result(file: 2a)
     TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE = "2d_twitter_link_data_from_bing_searched_website"
+    MERGED_SEARCH_RESULTS = "4_merged_search_result"
     
 
 class PATTERN(Enum):
