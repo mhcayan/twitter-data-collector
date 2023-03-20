@@ -1,4 +1,5 @@
 from Constants import PATTERN
+from Constants import Constants
 import re
 from ast import literal_eval
 import urllib
@@ -130,6 +131,9 @@ def get_url_extension(url):
     path = urlparse(url).path
     return os.path.splitext(path)[1]
 
+def fix_webcal_url(url):
+    return "http://" + url[len(Constants.WEBCAL_URL_PREFIX.value):];
+
 if __name__ == "__main__":
     status_url = "https://twitter.com/@CAUW/status/1575228220991049728"
     # print(get_screen_name_from_profile_url(status_url))
@@ -142,4 +146,5 @@ if __name__ == "__main__":
     # print(dict(sorted(idf_dict.items(), key=lambda item: item[1])))
     # print(get_single_word_search_keys_from_name("A bdkfjDl union kz LKf supeR "))
     # print(get_netloc("https://google.com"))
-    print(get_url_extension("http://lpdb.la.gov/Serving%20The%20Public/Programs/Baton%20Rouge%20Capital%20Conflict%20Office.php"))
+    # print(get_url_extension("http://lpdb.la.gov/Serving%20The%20Public/Programs/Baton%20Rouge%20Capital%20Conflict%20Office.php"))
+    print(fix_webcal_url("webcal://www.houstonorchidsociety.org/event/baton-rouge-orchid-society-show-and-sale/"))

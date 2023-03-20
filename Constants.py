@@ -10,6 +10,7 @@ class Constants(Enum):
     TWEETER_USER_INFO_CACHE_FILE_PATH = os.path.join(RESOURCES_PATH, r"user_info_cache.pickle")
     LOG_FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
     MINIMUM_SEARCH_KEY_LENGTH = 3
+    WEBCAL_URL_PREFIX = "webcal://"
     
 
 class Extension(Enum):
@@ -39,6 +40,7 @@ class FILENAME(Enum):
     NETLOCK_FREQUENCY_FOR_BING_SEARCH = "2c_netlock_frequency_for_bing_search" #this file contains the frequncy of the netlock for the bing search result(file: 2a)
     TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE = "2d_twitter_link_data_from_bing_searched_website"
     MERGED_SEARCH_RESULTS = "4_merged_search_result"
+    IS_TWITTER_IN_SEARCH_RESULT = "5_is_twitter_in_search_result" #added a new binary column in "1_twitter_user_info.csv"; this new column contains whether search result has the twitter handle
     
 
 class PATTERN(Enum):
