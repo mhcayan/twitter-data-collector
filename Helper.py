@@ -8,6 +8,7 @@ from Constants import *
 from Constants import FILENAME
 from Constants import Extension
 from urllib.parse import urlparse
+from nltk.corpus import words
 
 FREQUENT_WORD_SET = set()
 
@@ -134,6 +135,40 @@ def get_url_extension(url):
 def fix_webcal_url(url):
     return "http://" + url[len(Constants.WEBCAL_URL_PREFIX.value):];
 
+WORDS_TO_SKIP_IN_ACRONYM = set(['a', 'an', 'the', 'of', 'on', 'with'])
+
+def generate_acronym(name):
+    acronym = ''
+    for word in name.split():
+        
+        if not word:
+            continue
+
+        if is_english_word(word):
+            acronym += word[0]
+        elif word.isnumeric():
+            acronym += word
+        elif word[0].islower():
+            acronym += word
+
+    return acronym
+        
+NLTK_ENG_WORDS = set(word.lower() for word in words.words())
+
+def is_english_word(word):
+
+    return word in NLTK_ENG_WORDS
+
+COMMON_ACRONYMED_WORDS = [
+    ("baton rouge", 'br'),
+    ("batonrouge", 'br'),
+    ("louisiana", 'la'),
+    ("medical", 'med')]
+
+def get_common_acronymed_words():
+    return COMMON_ACRONYMED_WORDS
+    
+
 if __name__ == "__main__":
     status_url = "https://twitter.com/@CAUW/status/1575228220991049728"
     # print(get_screen_name_from_profile_url(status_url))
@@ -147,4 +182,9 @@ if __name__ == "__main__":
     # print(get_single_word_search_keys_from_name("A bdkfjDl union kz LKf supeR "))
     # print(get_netloc("https://google.com"))
     # print(get_url_extension("http://lpdb.la.gov/Serving%20The%20Public/Programs/Baton%20Rouge%20Capital%20Conflict%20Office.php"))
-    print(fix_webcal_url("webcal://www.houstonorchidsociety.org/event/baton-rouge-orchid-society-show-and-sale/"))
+    # print(fix_webcal_url("webcal://www.houstonorchidsociety.org/event/baton-rouge-orchid-society-show-and-sale/"))
+    print(is_english_word("d"))
+    # print(generate_acronym(name="a quick brown fox"))
+    print(generate_acronym("nysge & arizona"))
+
+    

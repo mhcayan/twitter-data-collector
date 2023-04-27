@@ -3,6 +3,8 @@ from urllib.parse import urlparse, urljoin
 from queue import Queue
 import WebpageScrapper
 from multiprocessing import Pool
+from Constants import Constants
+from Helper import fix_webcal_url
 
 def is_valid(url):
     parsed = urlparse(url)
@@ -29,6 +31,10 @@ def crawl_url(url, max_depth = 2, external_only = True):
         parent_url = q.get()
         removed_node_count += 1
         for child_url in WebpageScrapper.scrape_links(parent_url):
+            if child_url.startswith(Constants.WEBCAL_URL_PREFIX.value): #for some(7) urls we got requests.exceptions.InvalidSchema. all of those starts with 'webcal'
+                child_url = fix_webcal_url(child_url)
+            if not is_valid(child_url):
+                continue
             if child_url in visited_urls:
                 continue
             visited_urls.add(child_url)
@@ -47,7 +53,7 @@ def crawl_url(url, max_depth = 2, external_only = True):
     return visited_urls
 
 def crawl_urls(url_list):
-    number_of_processes = 50
+    number_of_processes = 25
     p = Pool(number_of_processes)
     results = p.map(crawl_url, url_list)
     p.terminate()
@@ -60,14 +66,14 @@ if __name__ == "__main__":
     # links = crawl_url(url, 2, external_only=True)
     # url = "https://bsalsu.wordpress.com/"
     
-    url_list = ["https://www.alilones.com/", "https://bsalsu.wordpress.com/", "http://lpdb.la.gov/Serving%20The%20Public/Programs/Baton%20Rouge%20Capital%20Conflict%20Office.php", "https://www.nonprofitinfomart.org/organization/10554139/"]
+    url_list = ["https://www.alilones.com/", "https://bsalsu.wordpress.com/", "https://lsms.org/"]
     start_time = time.time()
     results = crawl_urls(url_list)
     print("elapsed time %.2f" % (time.time() - start_time))
     print("__________________")
     print(len(results))
-    # for result in results:
-    #     print("---------------------------")
-    #     for link in result:
-    #         print(link)
+    for result in results:
+        print("---------------------------")
+        for link in result:
+            print(link)
 

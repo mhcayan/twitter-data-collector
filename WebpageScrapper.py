@@ -1,5 +1,5 @@
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, SoupStrainer
 from urllib.parse import urlparse, urljoin
 from time import time
 import Helper
@@ -26,7 +26,7 @@ def format_url(url):
     return parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path
 
 REQUEST_TIMEOUT_IN_SEC = 40
-EXCLUDE_EXTENSION = set([".pdf", ".xlsx", ".docx"])
+EXCLUDE_EXTENSION = set([".pdf", ".xlsx", ".docx", ".jpeg", ".png"])
 MAX_TRY_COUNT = 3
 VERIFY_SSL = True
 
@@ -47,7 +47,7 @@ def scrape_links(input_url):
 
                 res = requests.get(url = input_url, headers=ScrapeOps_Wrapper.get_random_header(), verify = VERIFY_SSL, timeout=REQUEST_TIMEOUT_IN_SEC)
                 VERIFY_SSL = True
-                logger1.error("input_url: %s status_code: %d" % (input_url, res.status_code))
+                logger1.info("input_url: %s status_code: %d" % (input_url, res.status_code))
                 if res.status_code == 200 or (res.status_code in IGNORE_AND_SCRAP_STATUS_CODE):
                     break
                 elif res.status_code in SKIP_STAUTS_CODE:
@@ -59,36 +59,35 @@ def scrape_links(input_url):
                 else:
                     return links
 
-            except http.client.RemoteDisconnected as e:
-                logger1.exception("exception for url: " + input_url)
-                try_count = try_count - 1
-                if try_count < 1:
-                    return links
             except requests.exceptions.SSLError as e:
-                logger1.exception("exception for url: " + input_url)
+                logger1.exception("exception ssl for url: " + input_url)
                 try_count = try_count - 1
                 if try_count < 1:
                     return links
                 VERIFY_SSL = False
+                
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.TooManyRedirects) as e:
-                logger1.exception("exception for url: " + input_url)
-                return links;                
-            except Exception as e:
-                logger1.exception("exception for url: " + input_url)
-                return links
+                logger1.exception("exception connection for url: " + input_url)
+                try_count = try_count - 1
+                if try_count < 1:
+                    return links
 
-        soup = BeautifulSoup(res.text, 'html.parser')
+            except Exception as e:
+                logger1.exception("exception other for url: " + input_url)
+                return links
         
-        for link in soup.find_all('a', href = True):
+        for link in BeautifulSoup(res.content, "html.parser", parse_only=SoupStrainer('a', href=True)):
             href = link.get("href")
-            if href:
+            if href is None or href.strip() is None:
+                continue
+            if href.startswith("javascript"):
+                continue
+            if not href.startswith("http"):
                 href = urljoin(input_url, href)
-                if is_valid_url(href):
-                    links.append(href)
-                    logger1.info(href)
-                    # print(href)
+            links.append(href)
+            
     except Exception as e:
-        logger1.exception("exception for url: " + input_url)
+        logger1.exception("exception scraping url: " + input_url)
 
     return links
             
@@ -108,13 +107,19 @@ if __name__ == "__main__":
         'https://www.calvarybr.org/who',
         "https://house.legis.louisiana.gov/llwc/default_LLWC_AboutUs",
         "https://ltrc.lsu.edu/",
-        "https://cathla.org/Main/About/Publications.aspx"]
+        "https://cathla.org/Main/About/Publications.aspx",
+        "https://batonrougechristianlifemagazine.com/2015/11/01/open-air-ministries-people-serving-people/",
+        "https://www.gabrielswaggart.org/crossfire/team",
+        "https://www.livinghopefellowshipde.org/blog"]
     start_time = time()
     url = urls[-1]
     if url.startswith(Constants.WEBCAL_URL_PREFIX.value):
         url = Helper.fix_webcal_url(url)
     
-    for l in set(scrape_links(url)):
+    links = set(scrape_links(url))
+    print(len(links))
+    print("------------")
+    for l in links:
         print(l)
     # print(len(set(scrape_links(url))))
     print(f"Time elapsed {time() - start_time}")

@@ -41,6 +41,10 @@ class FILENAME(Enum):
     TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE = "2d_twitter_link_data_from_bing_searched_website"
     MERGED_SEARCH_RESULTS = "4_merged_search_result"
     IS_TWITTER_IN_SEARCH_RESULT = "5_is_twitter_in_search_result" #added a new binary column in "1_twitter_user_info.csv"; this new column contains whether search result has the twitter handle
+    MERGED_SEARCH_RESULTS_WITH_CLEAN_NAME = "6_merged_search_result_with_clean_name"
+    MERGED_SEARCH_RESULTS_WITH_ACRONYMS = "7_merged_search_result_with_acronym"
+    SIMILARITY_SCORE = "8_similarity_score"
+    COMBINED_SIMILARITY_SCORE = "9_combined_similarity_score"
     
 
 class PATTERN(Enum):

@@ -5,12 +5,14 @@ import time
 with open("keys.json") as file:
     keysjson = json.load(file)
 
+
 subscription_key = keysjson["bing_subscription_key"]
 headers = {"Ocp-Apim-Subscription-Key": subscription_key}
 search_url = "https://api.bing.microsoft.com/v7.0/search"
 MAX_TRY_COUNT = 2
 
 def get_search_result(search_key):
+    print(subscription_key)
     urls = []
     params = {"q": search_key, "textDecorations": True, "textFormat": "HTML"}
     try_count = MAX_TRY_COUNT
@@ -30,7 +32,7 @@ def get_search_result(search_key):
     return urls
 
 if __name__ == "__main__":
-    search_key = "capital area united ways baton rouge site:twitter.com"
+    search_key = "LOUISIANA STATE MEDICAL SOCIETY".lower()
     urls = get_search_result(search_key=search_key)
     print(len(urls))
     for url in urls:
