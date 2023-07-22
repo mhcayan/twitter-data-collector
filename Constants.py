@@ -45,6 +45,7 @@ class FILENAME(Enum):
     MERGED_SEARCH_RESULTS_WITH_ACRONYMS = "7_merged_search_result_with_acronym"
     SIMILARITY_SCORE = "8_similarity_score"
     COMBINED_SIMILARITY_SCORE = "9_combined_similarity_score"
+    TOP_K_LIST_STAT = "10##_top_k_list_stat_by_**"
     
 
 class PATTERN(Enum):

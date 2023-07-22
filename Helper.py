@@ -23,7 +23,8 @@ def load_high_frequency_words():
                 if line:
                     FREQUENT_WORD_SET.add(line)
     except Exception as e:
-        print("high")
+        raise Exception("exception while loading high frequency words..")
+        
 
 load_high_frequency_words()
 

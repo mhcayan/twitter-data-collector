@@ -16,6 +16,8 @@ from cleanco import basename
 import datetime
 from Constants import *
 import Helper
+import jellyfish
+from collections import defaultdict
 
 
 PROJECT_PATH = r"F:\E\code\twitter-data-collector"
@@ -67,6 +69,7 @@ def write_data_to_file(output_file_name, tweepy_object):
 def write_df_to_csv(file_path, df, index = False):
     df.to_csv(file_path, index = index, encoding = 'utf-8')
 
+#take all the twiiter pages collected by natalie(screen_name_list). collect their twitter info using twitter api. store in the output file.
 def generate_twitter_user_info_file(screen_name_list, output_file):
 
     user_attr_list = ["ein", "twitter_id", "name", "created_at", "description", "favourites_count", "friends_count",
@@ -335,24 +338,92 @@ def clean_name(s):
     s = remove_legal_control(s)
     s = replace_non_ascii(s)
     s = remove_punctuation(s)
+    s = s.strip()
+    s = re.sub("\s\s+", " ", s) #replace two or more spaces with single space
+
+    #replace "louisiana" with "la", "baton rouge" with "br" and so on
+    for r in Helper.get_common_acronymed_words():
+        s = s.replace(*r)
     return s
     
 
-def compute_simililarity(input_file_name, output_file_name):
-    df = pd.read_csv(input_file_name, encoding='utf-8')
-    
-    ##data cleaning
-    #remove legal control terms
-    df["org_name_cleaned"] = df["org_name"].apply(lambda s : clean_name(s))
-    df["name_cleaned"] = df["name"].apply(lambda s : clean_name(s))
+#clean the names for matching
+#compute different similarity score
+def compute_similarity(input_file_name, output_file_name):
 
-    #compute similarity using thefuzz
-    df["fuzz_ratio"] = df.apply(lambda row : fuzz.ratio(row["org_name_cleaned"], row["name_cleaned"]), axis = 1)
-    df["fuzz_partial_ratio"] = df.apply(lambda row : fuzz.partial_ratio(row["org_name_cleaned"], row["name_cleaned"]), axis = 1)
-    df["fuzz_token_sort_ratio"] = df.apply(lambda row : fuzz.token_sort_ratio(row["org_name_cleaned"], row["name_cleaned"]), axis = 1)
-    df["fuzz_token_set_ratio"] = df.apply(lambda row : fuzz.token_set_ratio(row["org_name_cleaned"], row["name_cleaned"]), axis = 1)
+    df = pd.read_csv(input_file_name)
+
+    df['org_name_cleaned'] = df["org_name_cleaned"].astype('str')
+    df['name_cleaned'] = df["name_cleaned"].astype('str')
+    df['org_name_acronym'] = df["org_name_acronym"].astype('str')
+    df['name_acronym'] = df["name_acronym"].astype('str')
+
+    #compute org_name and name(twitter_name) similarity score
+    df['name_jaro_similarity'] = df.apply(lambda row : jellyfish.jaro_similarity(row["org_name_cleaned"], row["name_cleaned"]), axis = 1)
+    df['name_jaro_winkler_similarity'] = df.apply(lambda row : jellyfish.jaro_winkler_similarity(row["org_name_cleaned"], row["name_cleaned"]), axis = 1)
+    df["name_fuzz_ratio"] = df.apply(lambda row : (fuzz.ratio(row["org_name_cleaned"], row["name_cleaned"])) / 100.0, axis = 1)
+    df["name_fuzz_partial_ratio"] = df.apply(lambda row : (fuzz.partial_ratio(row["org_name_cleaned"], row["name_cleaned"])) / 100.0, axis = 1)
+    df["name_fuzz_token_sort_ratio"] = df.apply(lambda row : (fuzz.token_sort_ratio(row["org_name_cleaned"], row["name_cleaned"])) / 100.0, axis = 1)
+    df["name_fuzz_token_set_ratio"] = df.apply(lambda row : (fuzz.token_set_ratio(row["org_name_cleaned"], row["name_cleaned"])) / 100.0, axis = 1)
+
+
+    #compute similarity score
+    df['acronym_jaro_similarity'] = df.apply(lambda row : jellyfish.jaro_similarity(row["org_name_acronym"], row["name_acronym"]), axis = 1)
+    df['acronym_jaro_winkler_similarity'] = df.apply(lambda row : jellyfish.jaro_winkler_similarity(row["org_name_acronym"], row["name_acronym"]), axis = 1)
+    df["acronym_fuzz_ratio"] = df.apply(lambda row : (fuzz.ratio(row["org_name_acronym"], row["name_acronym"])) / 100.0, axis = 1)
+    df["acronym_fuzz_partial_ratio"] = df.apply(lambda row : (fuzz.partial_ratio(row["org_name_acronym"], row["name_acronym"])) / 100.0, axis = 1)
+    df["acronym_fuzz_token_sort_ratio"] = df.apply(lambda row : (fuzz.token_sort_ratio(row["org_name_acronym"], row["name_acronym"])) / 100.0, axis = 1)
+    df["acronym_fuzz_token_set_ratio"] = df.apply(lambda row : (fuzz.token_set_ratio(row["org_name_acronym"], row["name_acronym"])) / 100.0, axis = 1)
     write_df_to_csv(output_file_name, df)
 
+def compare_name_n_acronym_similarity_score(row, name_sim, acron_sim):
+    
+    if acron_sim <= name_sim:
+        return name_sim
+    
+    name1 = row["org_name_cleaned"]
+    name2 = row["name_cleaned"]
+    acron1 = row["org_name_acronym"]
+    acron2 = row["name_acronym"]
+    
+    len_name1 = len(name1)
+    len_name2 = len(name2)
+
+    if len(acron1) > 3 and len(acron2) > 3 and (min(len_name1, len_name2) * 2 < max(len_name1, len_name2)):
+        return acron_sim
+    
+    return name_sim
+
+#combine name_similarity_score and acronym_similarity_score into a single value    
+#previously we computed similarity score for both names and acronyms
+#if name_similary_score is better than acronym_similarity_score, we will use the name_similary_score as similary_score
+#other we might use acronym_similary_score if it full fill certain conditions
+#the conditions are acronym length must be greater than 3 and one of the name is significantly smaller than the other 
+# (i.e. smaller name is less than half the length of the longer name)
+def combine_acronym_similarity(input_file, output_file):
+    
+    df = pd.read_csv(input_file)
+
+    df['org_name_cleaned'] = df["org_name_cleaned"].astype('str')
+    df['name_cleaned'] = df["name_cleaned"].astype('str')
+    df['org_name_acronym'] = df["org_name_acronym"].astype('str')
+    df['name_acronym'] = df["name_acronym"].astype('str')
+
+    df["jaro_similarity"] = df.apply(
+        lambda row : compare_name_n_acronym_similarity_score(row, row["name_jaro_similarity"], row["acronym_jaro_similarity"]), axis=1)
+    df["jaro_winkler_similarity"] = df.apply(
+        lambda row : compare_name_n_acronym_similarity_score(row, row["name_jaro_winkler_similarity"], row["acronym_jaro_winkler_similarity"]), axis=1)
+    df["fuzz_ratio"] = df.apply(
+        lambda row : compare_name_n_acronym_similarity_score(row, row["name_fuzz_ratio"], row["acronym_fuzz_ratio"]), axis=1)
+    df["fuzz_partial_ratio"] = df.apply(
+        lambda row : compare_name_n_acronym_similarity_score(row, row["name_fuzz_partial_ratio"], row["acronym_fuzz_partial_ratio"]), axis=1)
+    df["fuzz_token_sort_ratio"] = df.apply(
+        lambda row : compare_name_n_acronym_similarity_score(row, row["name_fuzz_token_sort_ratio"], row["acronym_fuzz_token_sort_ratio"]), axis=1)
+    df["fuzz_token_set_ratio"] = df.apply(
+        lambda row : compare_name_n_acronym_similarity_score(row, row["name_fuzz_token_set_ratio"], row["acronym_fuzz_token_set_ratio"]), axis=1)
+    
+    write_df_to_csv(output_file, df)
+    
 #return a dictionary
 #key = twitter_id
 #value = set of eins' that belongs to that twitter_id
@@ -500,7 +571,10 @@ def get_google_search_results(input_file, output_csv_file):
                     print("user info fetch error. ein: {%r} org_name: {%r} screen_name: {%r}" % (ein, org_name, screen_name))
 
 
- 
+"""
+search for twitter pages on bing (append site:twiiter.com after search key)
+validate the found search result twitter page and record it
+"""
 def get_twitter_pages_by_bing_search(input_file, output_csv_file):
     
     
@@ -618,14 +692,15 @@ def get_external_link_from_website(input_csv_file, output_csv_file, netloc_frequ
                             "www.glassdoor.com",
                             "twitter.com",
                             "apps.apple.com",
-                            "www.apartments.com",
                             "www.cnn.com",
                             "www.msn.com",
                             "www.apartmentguide.com",
                             "www.usbanklocations.com",
                             "www.independent.co.uk",
                             "www.secure.facebook.com",
-                            "www.rent.com"])
+                            "www.rent.com",
+                            "www.amazon.com",
+                            "www.google.com"])
     netloc_frequency_df = pd.read_csv(netloc_frequency_for_bing_search_csv_file, header=None, names=['netloc_url', 'frequency'])
     netloc_frequency_dict = dict(zip(netloc_frequency_df["netloc_url"], netloc_frequency_df["frequency"]))
     
@@ -675,7 +750,7 @@ def filter_twitter_links_from_exteral_links(input_file, output_file):
     #remove the external links, which are not twitter link
     df = df[df[external_link_column_name].str.fullmatch(re.compile(".*twitter.com/([^\?/]+)/?"))]
 
-    #for an organization we there might be duplicate twitter link collected. dictionary is used to remove those duplicates
+    #for an organization, there might be duplicate twitter link. dictionary is used to remove those duplicates
     from collections import defaultdict
     screen_name_dict = defaultdict(list) #key = ein, value = list of screen_name found from websites
 
@@ -706,12 +781,12 @@ def filter_twitter_links_from_exteral_links(input_file, output_file):
                     user.id,
                     user.name,
                     user.created_at,
-                    user.description.replace('\n', ' ').encode('utf-8'),
+                    user.description.replace('\n', ' '),
                     user.favourites_count,
                     user.friends_count,
                     user.followers_count,
                     user.listed_count,
-                    user.location.replace('\n', ' ').encode('utf-8'),
+                    user.location.replace('\n', ' '),
                     user.screen_name,
                     user.statuses_count,
                     user.time_zone,
@@ -792,7 +867,7 @@ def merge_search_results(orig_file,
                         twitter_id,
                         twitter_info["name"],
                         twitter_info["created_at"],
-                        twitter_info["description"].deconde,
+                        twitter_info["description"],
                         twitter_info["favourites_count"],
                         twitter_info["friends_count"],
                         twitter_info["followers_count"],
@@ -803,8 +878,111 @@ def merge_search_results(orig_file,
                         twitter_info["time_zone"],
                         twitter_info["verified"]
                     ])
+
+#private function
+#this function used by "is_twitter_in_search_result"
+def is_in_search_result(row, df_search_result):
+    ein = row["ein"]
+    twitter_id = row["twitter_id"]
+    found_twitter_ids = df_search_result[df_search_result["ein"] == ein]["twitter_id"]
+    return int(twitter_id in found_twitter_ids.values)
+
+#for each organizations, for which twitter handle was found, finds out whether search result contains it's twitter handle
+#input param: 
+def is_twitter_in_search_result(input_file_twitter_info, input_file_search_result, output_file):
     
+    df_twitter_info = pd.read_csv(input_file_twitter_info, encoding = 'utf-8')
+    df_search_result = pd.read_csv(input_file_search_result, encoding = 'utf-8')
+    # print(len(df_twitter_info))
+    # print(len(df_search_result))
+    df_twitter_info["is_in_search_result"] = df_twitter_info.apply(
+        lambda row : is_in_search_result(row, df_search_result), axis=1)
+    write_df_to_csv(output_file, df_twitter_info)
+
+def clean_all_names(input_file, output_file):
     
+    df = pd.read_csv(input_file)
+    
+    df["org_name_cleaned"] = df["org_name"].astype('str').apply(lambda s : clean_name(s))
+    df["name_cleaned"] = df["name"].astype('str').apply(lambda s : clean_name(s))
+    write_df_to_csv(output_file, df)
+
+def generate_acronym(input_file, output_file):
+    df = pd.read_csv(input_file)
+    df.insert(df.columns.get_loc('org_name_cleaned') + 1, "org_name_acronym", "") #add a column for org_name acronym
+    df.insert(df.columns.get_loc('name_cleaned') + 1, "name_acronym", "") #add a column for name(twitter_name) acronym
+    df['org_name_cleaned'] = df["org_name_cleaned"].astype('str')
+    df['name_cleaned'] = df["name_cleaned"].astype('str')
+    df['org_name_acronym'] = df['org_name_cleaned'].apply(lambda s : Helper.generate_acronym(s))
+    df['name_acronym'] = df['name_cleaned'].apply(lambda s : Helper.generate_acronym(s))
+    # print(df[["org_name_cleaned", "org_name_acronym", "name_cleaned", "name_acronym"]].head(15))
+    write_df_to_csv(output_file, df)
+
+def compute_top_n_stat(is_in_search_result_file, input_file, output_file = None, simlarity_score_column_name = None):
+    """
+    for a given similary score, create a files that contains miss_count when we choose top_k search_result for that similarity
+    measure
+    """
+    print(similarity_score_column)
+    is_in_search_result_df = pd.read_csv(is_in_search_result_file)
+    df = pd.read_csv(input_file)
+    #found_entries = orgs for which twitter_id is in our search result
+    #here each entry is stored as a tuple (ein, twitter_id)
+    found_entries = list(is_in_search_result_df[is_in_search_result_df["is_in_search_result"] == 1][["ein", "twitter_id"]].apply(tuple, axis = 1))
+    
+    # print(len(found_entries))
+    miss_count_dict = defaultdict(int) #key = top-k (e.g top-1, top-2, top-3...) value = miss_count when we take top-k 
+    missing_orgs_dict = defaultdict(list) #key = top-k (e.g top-1, top-2, top-3...) value = missed_orgs when we take top-k 
+
+    for ein, twitter_id in found_entries:
+        #get the search result for this org, and sort by a the similarity score is descending order
+        search_result_df = df[df["ein"] == ein].copy()
+        search_result_df.sort_values(by = [simlarity_score_column_name], ascending = False, inplace = True)
+        search_result_df.reset_index(drop=True, inplace=True)
+        for index in search_result_df.index:
+            found_twitter_id = search_result_df.at[index, 'twitter_id']
+            if twitter_id == found_twitter_id:
+                break
+            miss_count_dict[index + 1] = miss_count_dict[index + 1] + 1
+            missing_orgs_dict[index + 1].append(ein)
+
+    top_k_list = list()
+    for top_k in sorted(miss_count_dict):
+        top_k_list.append((top_k, miss_count_dict[top_k], missing_orgs_dict[top_k]))
+    top_k_df = pd.DataFrame(top_k_list, columns=["top_k", "miss_count", "missing_orgs"])
+    top_k_df.insert(1, "#orgs_found_by_search", len(found_entries))
+    write_df_to_csv(output_file, top_k_df)
+
+
+def draw_top_k_graph(similarity_score_columns):
+
+    
+    top_k_file_list = []
+    serial = 'a'
+    for similarity_score in similarity_score_columns:
+        top_k_file_name = FILENAME.TOP_K_LIST_STAT.value.replace("##", serial)
+        serial = chr(ord(serial) + 1)
+        top_k_file_name = top_k_file_name.replace('**', similarity_score)
+        print(top_k_file_name)
+        top_k_file = os.path.join(Constants.RESOURCES_PATH.value, top_k_file_name + Extension.CSV.value)
+        top_k_file_list.append(top_k_file)
+
+    
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_style("darkgrid")
+    plt.xlabel("top_k")
+    plt.ylabel("miss_count")
+    chosen_similarity_scores = {"jaro_similarity", "jaro_winkler_similarity", "fuzz_ratio", "fuzz_token_sort_ratio", "fuzz_token_set_ratio"}
+    for similarity_score, top_k_file in zip(similarity_score_columns, top_k_file_list):
+        if similarity_score not in chosen_similarity_scores:
+            continue
+        df = pd.read_csv(top_k_file)
+        plt.plot(df['top_k'], df['miss_count'], label = similarity_score)
+    plt.legend()
+    plt.show()
 
 if __name__ == '__main__':
     
@@ -916,9 +1094,63 @@ if __name__ == '__main__':
     # filter_twitter_links_from_exteral_links(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.EXTERNAL_LINK_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
     #     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value))
 
-    merge_search_results(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.CLEANED_INPUT_FILE.value + Extension.XLSX.value),
-                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_SEARCH_RESULTS.value + Extension.CSV.value),
-                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS.value + Extension.CSV.value),
-                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.BING_SEARCH.value + Extension.CSV.value),
-                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
-                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS.value + Extension.CSV.value))
+    # merge_search_results(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.CLEANED_INPUT_FILE.value + Extension.XLSX.value),
+    #                     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_SEARCH_RESULTS.value + Extension.CSV.value),
+    #                     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SINGLE_KEYWORD_TWITTER_SEARCH_RESULTS.value + Extension.CSV.value),
+    #                     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.BING_SEARCH.value + Extension.CSV.value),
+    #                     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.TWITTER_LINK_DATA_FROM_BING_SEARCHED_WEBSITE.value + Extension.CSV.value),
+    #                     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS.value + Extension.CSV.value))
+
+    # is_twitter_in_search_result(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.USER_INFO_FILE.value + Extension.CSV.value),
+    #                     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS.value + Extension.CSV.value),
+    #                     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.IS_TWITTER_IN_SEARCH_RESULT.value + Extension.CSV.value))
+
+    # clean_all_names(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS.value + Extension.CSV.value),
+    #                 os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS_WITH_CLEAN_NAME.value + Extension.CSV.value))
+    
+    # generate_acronym(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS_WITH_CLEAN_NAME.value + Extension.CSV.value),
+    #                 os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS_WITH_ACRONYMS.value + Extension.CSV.value))
+    
+    # compute_similarity(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS_WITH_ACRONYMS.value + Extension.CSV.value),
+    #                 os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SIMILARITY_SCORE.value + Extension.CSV.value))
+
+    # combine_acronym_similarity(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SIMILARITY_SCORE.value + Extension.CSV.value),
+    #                 os.path.join(Constants.RESOURCES_PATH.value, FILENAME.COMBINED_SIMILARITY_SCORE.value + Extension.CSV.value))
+
+    
+    #this code generates the top_k stat files
+    similarity_score_columns = [
+        'name_jaro_similarity',
+        'name_jaro_winkler_similarity',
+        'name_fuzz_ratio',
+        'name_fuzz_partial_ratio',
+        'name_fuzz_token_sort_ratio',
+        'name_fuzz_token_set_ratio',
+        'acronym_jaro_similarity',
+        'acronym_jaro_winkler_similarity',
+        'acronym_fuzz_ratio',
+        'acronym_fuzz_partial_ratio',
+        'acronym_fuzz_token_sort_ratio',
+        'acronym_fuzz_token_set_ratio',
+        'jaro_similarity',
+        'jaro_winkler_similarity',
+        'fuzz_ratio',
+        'fuzz_partial_ratio',
+        'fuzz_token_sort_ratio',
+        'fuzz_token_set_ratio'
+    ]
+    """
+    serial = 'a'
+    for similarity_score_column in similarity_score_columns:
+        output_file_name = FILENAME.TOP_K_LIST_STAT.value.replace("##", serial)
+        serial = chr(ord(serial) + 1)
+        output_file_name = output_file_name.replace('**', similarity_score_column)
+        compute_top_n_stat(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.IS_TWITTER_IN_SEARCH_RESULT.value + Extension.CSV.value),
+                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.COMBINED_SIMILARITY_SCORE.value + Extension.CSV.value),
+                        output_file=os.path.join(Constants.RESOURCES_PATH.value, output_file_name + Extension.CSV.value),
+                        simlarity_score_column_name= similarity_score_column)
+    """
+    
+    draw_top_k_graph(similarity_score_columns=similarity_score_columns)
+
+
