@@ -9,8 +9,10 @@ from Constants import FILENAME
 from Constants import Extension
 from urllib.parse import urlparse
 from nltk.corpus import words
+from nltk.stem.wordnet import WordNetLemmatizer
 
 FREQUENT_WORD_SET = set()
+Lematizer = WordNetLemmatizer()
 
 #https://github.com/derekchuank/high-frequency-vocabulary/blob/master/20k.txt
 #20k most frequent words were used as high frequency words
@@ -144,7 +146,7 @@ def generate_acronym(name):
         
         if not word:
             continue
-
+        word = Lematizer.lemmatize(word) #some plurals (e.g. professionals) can't be detected as english word, so we lematized it
         if is_english_word(word):
             acronym += word[0]
         elif word.isnumeric():
@@ -184,8 +186,10 @@ if __name__ == "__main__":
     # print(get_netloc("https://google.com"))
     # print(get_url_extension("http://lpdb.la.gov/Serving%20The%20Public/Programs/Baton%20Rouge%20Capital%20Conflict%20Office.php"))
     # print(fix_webcal_url("webcal://www.houstonorchidsociety.org/event/baton-rouge-orchid-society-show-and-sale/"))
-    print(is_english_word("d"))
-    # print(generate_acronym(name="a quick brown fox"))
+    print(is_english_word(""))
+    print(generate_acronym(name="a quick brown fox"))
+    # print(generate_acronym('association for professionals in infection ctrl epidemiology'))
     print(generate_acronym("nysge & arizona"))
+
 
     
