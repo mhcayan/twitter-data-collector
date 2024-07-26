@@ -67,6 +67,9 @@ def get_column_word_count(df, column_name):
 #input: "b'ab'"
 #returns: "ab"
 def decodeByteString(byteString):
+
+    if not (byteString.startswith("b'") or byteString.startswith('b"')):
+        return byteString
     return literal_eval(byteString).decode()
 
 def resolve(url):
@@ -83,6 +86,19 @@ def setup_logger(name, log_file, level=logging.INFO):
     logger.addHandler(handler)
 
     return logger
+
+def get_trailing_digits(s):
+    # This regex pattern matches any digits at the end of the string. the digits can followed by one or more spaces
+    pattern = r"(\d+)\s+$"
+    
+    match = re.search(pattern, s)
+    
+    if match:
+        # Return the matched digits
+        return match.group(0)
+    else:
+        # If no digits found at the end, return an empty string
+        return ""
 
 def compute_IDF(documents):
     document_word_set_list = []
@@ -138,21 +154,35 @@ def get_url_extension(url):
 def fix_webcal_url(url):
     return "http://" + url[len(Constants.WEBCAL_URL_PREFIX.value):];
 
-WORDS_TO_SKIP_IN_ACRONYM = set(['a', 'an', 'the', 'of', 'on', 'with'])
+ACRONYM_SKIP_WORDS = set([
+    "a", "an", "the",  # Articles
+    "and", "or", "but", "nor", "for", "yet", "so",  # Conjunctions
+    "at", "by", "in", "of", "on", "to", "with", "from", "up", "down",  # Prepositions
+    "over", "under", "between", "among", "through", "during", "before", "after", "around"
+])
+
 
 def generate_acronym(name):
     acronym = ''
-    for word in name.split():
-        
+    words = name.split()
+    #single word name is considered as acronym
+    if len(words) == 1:
+        return name
+    for word in words:
         if not word:
             continue
-        word = Lematizer.lemmatize(word) #some plurals (e.g. professionals) can't be detected as english word, so we lematized it
-        if is_english_word(word):
+        word = Lematizer.lemmatize(word) #some plurals (e.g. professionals) can't be detected as english word, so we lemmatized it
+        if word in ACRONYM_SKIP_WORDS:
+            continue
+        elif is_english_word(word):
             acronym += word[0]
         elif word.isnumeric():
             acronym += word
         elif word[0].islower():
-            acronym += word
+            if len(words) < 3:
+                acronym += word
+            else:
+                acronym += word[0]
 
     return acronym
         
@@ -186,10 +216,29 @@ if __name__ == "__main__":
     # print(get_netloc("https://google.com"))
     # print(get_url_extension("http://lpdb.la.gov/Serving%20The%20Public/Programs/Baton%20Rouge%20Capital%20Conflict%20Office.php"))
     # print(fix_webcal_url("webcal://www.houstonorchidsociety.org/event/baton-rouge-orchid-society-show-and-sale/"))
-    print(is_english_word(""))
-    print(generate_acronym(name="a quick brown fox"))
+    # print(is_english_word(""))
+    # print(generate_acronym(name="a quick brown fox"))
     # print(generate_acronym('association for professionals in infection ctrl epidemiology'))
-    print(generate_acronym("nysge & arizona"))
+    print(generate_acronym("the nysge & of arizona"))
+    print(generate_acronym("SIGMA GAMMA RHO SORORITY".lower()))
+    print(generate_acronym("united brotherhood of carpenters joiners"))
+    print(generate_acronym("UNITED COMMERCIAL TRAVELERS OF AMERICA".lower()))
+    print(generate_acronym("east la company"))
+    print(generate_acronym("AMERICAN LEGION AUXILIARY".lower()))
+    print(generate_acronym("AMERICAN FEDERATION OF STATE COUNTY & MUNICIPAL EMPLOYEES".lower()))
+    print(generate_acronym('labi foundation'))
+    print(generate_acronym('laasdfbi foundation'))
+    print(generate_acronym('left foundation'))
+    # print(is_high_frequency_word("BUREAU"))
+    
+    
+
+
+
+
+
+    
+
 
 
     
