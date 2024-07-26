@@ -378,26 +378,27 @@ def compute_similarity(input_file_name, output_file_name):
 
 def compare_name_n_acronym_similarity_score(row, name_sim, acron_sim):
     
-    if acron_sim <= name_sim:
-        return name_sim
+    # if acron_sim <= name_sim:
+    #     return name_sim
     
-    name1 = row["org_name_cleaned"]
-    name2 = row["name_cleaned"]
-    acron1 = row["org_name_acronym"]
-    acron2 = row["name_acronym"]
+    # name1 = row["org_name_cleaned"]
+    # name2 = row["name_cleaned"]
+    # acron1 = row["org_name_acronym"]
+    # acron2 = row["name_acronym"]
     
-    len_name1 = len(name1)
-    len_name2 = len(name2)
+    # len_name1 = len(name1)
+    # len_name2 = len(name2)
 
-    if len(acron1) > 3 and len(acron2) > 3 and (min(len_name1, len_name2) * 2 < max(len_name1, len_name2)):
-        return acron_sim
+    # if len(acron1) > 3 and len(acron2) > 3 and (min(len_name1, len_name2) * 2 < max(len_name1, len_name2)):
+    #     return acron_sim
     
-    return name_sim
+    # return name_sim
+    return max(acron_sim, name_sim)
 
 #combine name_similarity_score and acronym_similarity_score into a single value    
 #previously we computed similarity score for both names and acronyms
 #if name_similary_score is better than acronym_similarity_score, we will use the name_similary_score as similary_score
-#other we might use acronym_similary_score if it full fill certain conditions
+#otherwise we might use acronym_similary_score if it fullfils certain conditions.
 #the conditions are acronym length must be greater than 3 and one of the name is significantly smaller than the other 
 # (i.e. smaller name is less than half the length of the longer name)
 def combine_acronym_similarity(input_file, output_file):
@@ -812,8 +813,8 @@ def merge_search_results(orig_file,
                         website_scrapped_result =None,
                         output_file = None):
     # ugly code :(
-    twitter_info_dicts = []
-    search_result_dicts = []
+    twitter_info_dicts = [] #for each dict : key = ein, value = set of twitter ids found by search
+    search_result_dicts = [] #for each dict: key = twitter_id, value = twitter_info
     df = pd.read_csv(twitter_search_result, encoding='utf-8')
     search_result_dicts.append(get_ein_twitterids_dict(df))
     twitter_info_dicts.append(get_twitter_info_dict(df))
@@ -982,7 +983,7 @@ def draw_top_k_graph(similarity_score_columns):
         df = pd.read_csv(top_k_file)
         plt.plot(df['top_k'], df['miss_count'], label = similarity_score)
     plt.legend()
-    plt.show()
+    plt.savefig('top-k-graph.png', dpi = 300)
 
 if __name__ == '__main__':
     
@@ -1114,43 +1115,43 @@ if __name__ == '__main__':
     # compute_similarity(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS_WITH_ACRONYMS.value + Extension.CSV.value),
     #                 os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SIMILARITY_SCORE.value + Extension.CSV.value))
 
-    # combine_acronym_similarity(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SIMILARITY_SCORE.value + Extension.CSV.value),
-    #                 os.path.join(Constants.RESOURCES_PATH.value, FILENAME.COMBINED_SIMILARITY_SCORE.value + Extension.CSV.value))
+    combine_acronym_similarity(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SIMILARITY_SCORE.value + Extension.CSV.value),
+                    os.path.join(Constants.RESOURCES_PATH.value, FILENAME.COMBINED_SIMILARITY_SCORE.value + Extension.CSV.value))
 
     
-    #this code generates the top_k stat files
-    similarity_score_columns = [
-        'name_jaro_similarity',
-        'name_jaro_winkler_similarity',
-        'name_fuzz_ratio',
-        'name_fuzz_partial_ratio',
-        'name_fuzz_token_sort_ratio',
-        'name_fuzz_token_set_ratio',
-        'acronym_jaro_similarity',
-        'acronym_jaro_winkler_similarity',
-        'acronym_fuzz_ratio',
-        'acronym_fuzz_partial_ratio',
-        'acronym_fuzz_token_sort_ratio',
-        'acronym_fuzz_token_set_ratio',
-        'jaro_similarity',
-        'jaro_winkler_similarity',
-        'fuzz_ratio',
-        'fuzz_partial_ratio',
-        'fuzz_token_sort_ratio',
-        'fuzz_token_set_ratio'
-    ]
-    """
-    serial = 'a'
-    for similarity_score_column in similarity_score_columns:
-        output_file_name = FILENAME.TOP_K_LIST_STAT.value.replace("##", serial)
-        serial = chr(ord(serial) + 1)
-        output_file_name = output_file_name.replace('**', similarity_score_column)
-        compute_top_n_stat(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.IS_TWITTER_IN_SEARCH_RESULT.value + Extension.CSV.value),
-                        os.path.join(Constants.RESOURCES_PATH.value, FILENAME.COMBINED_SIMILARITY_SCORE.value + Extension.CSV.value),
-                        output_file=os.path.join(Constants.RESOURCES_PATH.value, output_file_name + Extension.CSV.value),
-                        simlarity_score_column_name= similarity_score_column)
-    """
+    # #this code generates the top_k stat files
+    # similarity_score_columns = [
+    #     'name_jaro_similarity',
+    #     'name_jaro_winkler_similarity',
+    #     'name_fuzz_ratio',
+    #     'name_fuzz_partial_ratio',
+    #     'name_fuzz_token_sort_ratio',
+    #     'name_fuzz_token_set_ratio',
+    #     'acronym_jaro_similarity',
+    #     'acronym_jaro_winkler_similarity',
+    #     'acronym_fuzz_ratio',
+    #     'acronym_fuzz_partial_ratio',
+    #     'acronym_fuzz_token_sort_ratio',
+    #     'acronym_fuzz_token_set_ratio',
+    #     'jaro_similarity',
+    #     'jaro_winkler_similarity',
+    #     'fuzz_ratio',
+    #     'fuzz_partial_ratio',
+    #     'fuzz_token_sort_ratio',
+    #     'fuzz_token_set_ratio'
+    # ]
+    # """
+    # serial = 'a'
+    # for similarity_score_column in similarity_score_columns:
+    #     output_file_name = FILENAME.TOP_K_LIST_STAT.value.replace("##", serial)
+    #     serial = chr(ord(serial) + 1)
+    #     output_file_name = output_file_name.replace('**', similarity_score_column)
+    #     compute_top_n_stat(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.IS_TWITTER_IN_SEARCH_RESULT.value + Extension.CSV.value),
+    #                     os.path.join(Constants.RESOURCES_PATH.value, FILENAME.COMBINED_SIMILARITY_SCORE.value + Extension.CSV.value),
+    #                     output_file=os.path.join(Constants.RESOURCES_PATH.value, output_file_name + Extension.CSV.value),
+    #                     simlarity_score_column_name= similarity_score_column)
+    # """
     
-    draw_top_k_graph(similarity_score_columns=similarity_score_columns)
+    # draw_top_k_graph(similarity_score_columns=similarity_score_columns)
 
 
