@@ -955,6 +955,40 @@ def compute_top_n_stat(is_in_search_result_file, input_file, output_file = None,
     write_df_to_csv(output_file, top_k_df)
 
 
+def compute_top_n_stat2(input_file, output_file = None, simlarity_score_column_name = None):
+    """
+    for a given similary score, create a files that contains miss_count when we choose top_k search_result for that similarity
+    measure
+    """
+    df = pd.read_csv(input_file)
+    #found_entries = unique test eins and their twitter_ids
+    #here each entry is stored as a tuple (ein, twitter_id)
+    found_entries = list(df[df["class"] == 1][["ein", "twitter_id"]].apply(tuple, axis = 1))
+    
+    # print(len(found_entries))
+    miss_count_dict = defaultdict(int) #key = top-k (e.g top-1, top-2, top-3...) value = miss_count when we take top-k 
+    missing_orgs_dict = defaultdict(list) #key = top-k (e.g top-1, top-2, top-3...) value = missed_orgs when we take top-k 
+
+    for ein, twitter_id in found_entries:
+        #get the search result for this org, and sort by a the similarity score is descending order
+        search_result_df = df[df["ein"] == ein].copy()
+        search_result_df.sort_values(by = [simlarity_score_column_name], ascending = False, inplace = True)
+        search_result_df.reset_index(drop=True, inplace=True)
+        for index in search_result_df.index:
+            found_twitter_id = search_result_df.at[index, 'twitter_id']
+            if twitter_id == found_twitter_id:
+                break
+            miss_count_dict[index + 1] = miss_count_dict[index + 1] + 1
+            missing_orgs_dict[index + 1].append(ein)
+
+    top_k_list = list()
+    for top_k in sorted(miss_count_dict):
+        top_k_list.append((top_k, miss_count_dict[top_k], missing_orgs_dict[top_k]))
+    top_k_df = pd.DataFrame(top_k_list, columns=["top_k", "miss_count", "missing_orgs"])
+    top_k_df.insert(1, "#total_organizations", len(found_entries))
+    write_df_to_csv(output_file, top_k_df)
+
+
 def draw_top_k_graph(similarity_score_columns):
 
     
@@ -976,14 +1010,14 @@ def draw_top_k_graph(similarity_score_columns):
     sns.set_style("darkgrid")
     plt.xlabel("top_k")
     plt.ylabel("miss_count")
-    chosen_similarity_scores = {"jaro_similarity", "jaro_winkler_similarity", "fuzz_ratio", "fuzz_token_sort_ratio", "fuzz_token_set_ratio"}
+    chosen_similarity_scores = {"jaro_similarity", "jaro_winkler_similarity", "fuzz_ratio", "fuzz_token_sort_ratio", "fuzz_token_set_ratio", "prob_class_1"}
     for similarity_score, top_k_file in zip(similarity_score_columns, top_k_file_list):
         if similarity_score not in chosen_similarity_scores:
             continue
         df = pd.read_csv(top_k_file)
         plt.plot(df['top_k'], df['miss_count'], label = similarity_score)
     plt.legend()
-    plt.savefig('top-k-graph.png', dpi = 300)
+    plt.savefig('top-k-graph-final.png', dpi = 300)
 
 if __name__ == '__main__':
     
@@ -1115,8 +1149,8 @@ if __name__ == '__main__':
     # compute_similarity(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.MERGED_SEARCH_RESULTS_WITH_ACRONYMS.value + Extension.CSV.value),
     #                 os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SIMILARITY_SCORE.value + Extension.CSV.value))
 
-    combine_acronym_similarity(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SIMILARITY_SCORE.value + Extension.CSV.value),
-                    os.path.join(Constants.RESOURCES_PATH.value, FILENAME.COMBINED_SIMILARITY_SCORE.value + Extension.CSV.value))
+    # combine_acronym_similarity(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.SIMILARITY_SCORE.value + Extension.CSV.value),
+    #                 os.path.join(Constants.RESOURCES_PATH.value, FILENAME.COMBINED_SIMILARITY_SCORE.value + Extension.CSV.value))
 
     
     # #this code generates the top_k stat files
@@ -1153,5 +1187,44 @@ if __name__ == '__main__':
     # """
     
     # draw_top_k_graph(similarity_score_columns=similarity_score_columns)
+
+
+
+
+    # #this code generates the top_k stat files for test orgs
+    similarity_score_columns = [
+        'name_jaro_similarity',
+        'name_jaro_winkler_similarity',
+        'name_fuzz_ratio',
+        'name_fuzz_partial_ratio',
+        'name_fuzz_token_sort_ratio',
+        'name_fuzz_token_set_ratio',
+        'acronym_jaro_similarity',
+        'acronym_jaro_winkler_similarity',
+        'acronym_fuzz_ratio',
+        'acronym_fuzz_partial_ratio',
+        'acronym_fuzz_token_sort_ratio',
+        'acronym_fuzz_token_set_ratio',
+        'jaro_similarity',
+        'jaro_winkler_similarity',
+        'fuzz_ratio',
+        'fuzz_partial_ratio',
+        'fuzz_token_sort_ratio',
+        'fuzz_token_set_ratio',
+        'prob_class_1'
+    ]
+    
+    """
+    serial = 'a'
+    for similarity_score_column in similarity_score_columns:
+        output_file_name = FILENAME.TOP_K_LIST_STAT.value.replace("##", serial)
+        serial = chr(ord(serial) + 1)
+        output_file_name = output_file_name.replace('**', similarity_score_column)
+        compute_top_n_stat2(os.path.join(Constants.RESOURCES_PATH.value, FILENAME.CLASSIFIED_DATA.value + Extension.CSV.value),
+                        output_file=os.path.join(Constants.RESOURCES_PATH.value, output_file_name + Extension.CSV.value),
+                        simlarity_score_column_name= similarity_score_column)
+    """
+    
+    draw_top_k_graph(similarity_score_columns=similarity_score_columns)
 
 

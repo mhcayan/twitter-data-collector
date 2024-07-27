@@ -4,13 +4,14 @@ import re
 class Constants(Enum):
 
     PROJECT_PATH = r"F:\E\code\twitter-data-collector"
-    RESOURCES_PATH = os.path.join(PROJECT_PATH, r"resources\20221130")
+    RESOURCES_PATH = os.path.join(PROJECT_PATH, r"resources\20240726")
     LOG_PATH = os.path.join(RESOURCES_PATH, r"log")
     TWEETER_CACHE_FILE_PATH = os.path.join(RESOURCES_PATH, r"user_info_cache.csv")
     TWEETER_USER_INFO_CACHE_FILE_PATH = os.path.join(RESOURCES_PATH, r"user_info_cache.pickle")
     LOG_FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
     MINIMUM_SEARCH_KEY_LENGTH = 3
     WEBCAL_URL_PREFIX = "webcal://"
+    RANDOM_STATE = 32
     
 
 class Extension(Enum):
@@ -45,7 +46,9 @@ class FILENAME(Enum):
     MERGED_SEARCH_RESULTS_WITH_ACRONYMS = "7_merged_search_result_with_acronym"
     SIMILARITY_SCORE = "8_similarity_score"
     COMBINED_SIMILARITY_SCORE = "9_combined_similarity_score"
-    TOP_K_LIST_STAT = "10##_top_k_list_stat_by_**"
+    CLASSIFIED_DATA = "10_classified_data"
+    TOP_K_LIST_STAT = "11##_top_k_list_stat_by_**"
+
     
 
 class PATTERN(Enum):
@@ -53,3 +56,13 @@ class PATTERN(Enum):
     STATUS_URL = re.compile(".*.twitter.com/.*/status/([\d]+).*")
     HASHTAG_URL = re.compile(".*.twitter.com/hashtag/.*")
     GOOGLE_SEARCH_RESULT_URL = re.compile(r"/url\?q=([a-zA-Z0-9:/\._\-]+).*")
+
+class CITY_CATEGORY(Enum):
+    SAME_CITY = "same"
+    MISSING = "missing"
+
+BTR_ZIP_CODES = set([70801, 70802, 70803, 70805, 70806, 70807, 70808, 70809, 70810, 70811, 70812, 70813, 
+                     70814, 70815, 70816, 70817, 70818, 70819, 70820, 70821, 70822, 70823, 70825, 70826, 
+                     70827, 70831, 70833, 70835, 70836, 70837, 70873])
+
+
